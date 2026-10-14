@@ -10,6 +10,8 @@
 - WebM/Opus、MP4/AAC、OGG 等格式动态探测；后端 FFmpeg 真实解码。
 - 自动建议发音选区、手动起止调整、可配置 F0 范围、质量提示。
 - 振幅波形、F0 曲线、最低点标记、同声调复练对比与 CSV 导出。
+- 声调轮廓分、同参照分数历史、真人标准曲线对照、雷达图、分段偏差和 RMS 音量图。
+- 专业课程示范音回听、教师上传示范、保留本人音色与时长的 Praat 声调重合成播放。
 - 教师/学习者账号、单次邀请码、登录会话、练习数据隔离、授权教师查看。
 - 服务器历史记录和录音回听，练习与对话删除。
 - 教学问答、知识检索、可配置的 OpenAI 兼容模型 API；无密钥时明确使用本地规则。
@@ -89,7 +91,7 @@ docker build --secret id=proxy_ca,src=/etc/ssl/certs/ca-certificates.crt -t tone
 
 使用 DeepSeek V4 Pro 时设 `LLM_MODEL=deepseek-v4-pro`。可通过 `LLM_REASONING_EFFORT=high`、`LLM_MAX_TOKENS=8192`、`LLM_TIMEOUT_SECONDS=120` 调整解读预算。DeepSeek 请求启用思考模式，但页面展示可核对的测量和结论，不展示模型内部推理文本。来源：[DeepSeek 接口文档](https://api-docs.deepseek.com/api/create-chat-completion/)。
 
-`skills/manifest.json` 注册六类技能；各目录的 `SKILL.md` 定义输入、职责和限制：
+`skills/manifest.json` 注册分析与教学技能；各目录的 `SKILL.md` 定义输入、职责和限制：
 
 | Skill | 职责 |
 |---|---|
@@ -100,19 +102,21 @@ docker build --secret id=proxy_ca,src=/etc/ssl/certs/ca-certificates.crt -t tone
 | chart-data | 校验波形/F0 数据与轴单位 |
 | learning-memory | 按账号记录和召回学习事实 |
 | scientific-response | 强制规范科学回复结构、图表解释、依据引用和复练实验 |
+| anti-defensive-writing | 强制检查直接、具体、有证据的教学表述 |
+| tone-scoring | 版本化参照对比、轮廓分和同条件复练记录 |
 
 分析 harness 在代码中强制以下顺序，不能由模型跳过或重新排序：
 
 ```mermaid
 flowchart LR
   A[校验与解码] --> B[确定选区] --> C[Praat F0]
-  C --> D[质量检查] --> E[声学特征] --> F[练习建议]
+  C --> D[质量检查] --> E[声学特征] --> S[参照对比与评分] --> F[练习建议]
   F --> G[图表数据校验] --> H[学习摘要]
 ```
 
-每一步保存技能文件哈希、开始/结束时间、状态与结果摘要。页面展示八个步骤及实际进度。失败步骤保留原因，下游步骤不执行。日志保存工具结果摘要，不保存模型隐藏思考。
+每一步保存技能文件哈希、开始/结束时间、状态与结果摘要。录音区的流程图展示九个声学步骤，随后展示六个教学步骤。模型请求期间显示实际阶段、已用时间和等待动画，不显示虚构百分比。失败步骤保留原因，下游步骤不执行。
 
-教学问答按会话权限 → 分析和记忆 → 教学 skill 与资料检索 → 模型/本地回答 → 输出检查 → 对话保存执行。模型接收教学技能文本、服务器读取的分析结果与本人记忆，不接收任意客户端声学数值；录音不发送给文本模型。输出检查会拦截部分未经校准的评分和诊断表述，但不能代替教师审校。
+教学问答按会话权限 → 分析和记忆 → 教学 skill 与资料检索 → 模型/本地回答 → 输出检查 → 对话保存执行。模型解释服务器计算的测量、轮廓分与同参照变化，不接收任意客户端数值；录音不发送给文本模型。数值校验拦截模型编造的分数和诊断表述。
 
 短期记忆来自当前会话最近十条消息；长期记忆来自可编辑学习目标与最近二十次确定性练习摘要，带来源 `practice_id` 和算法版本。不从一次录音推断稳定能力或疾病。用户可以关闭长期记忆、清空摘要，删除练习会同步删除对应摘要。关闭后不向模型发送长期记忆、不写入新摘要。
 
@@ -128,7 +132,11 @@ flowchart LR
 - 原始及解码音频保存于私有数据卷，默认 30 天后清理；结构化结果保留，用户可主动删除。`AUDIO_RETENTION_DAYS` 可配置。
 - 数据库初始化使用 `create_all`，用于首次安装。后续改变已部署的 schema 需要编写迁移并先备份，不能将 `create_all` 当作迁移工具。
 
-没有提供教师参考录音、音域校准或真实标注训练语料，因此本项目输出观测与练习建议，不产生未经验证的评分、分类准确率或诊断。连续语流、轻声与三声变调需另外扩展。没有用合成音冒充教师示范。
+轮廓分是可复算的参照匹配指标：75% 归一化轮廓贴合 +25% 分段升降方向，方法版本 `contour-1.0`。音域按本次第 10–90 百分位半音值归一化，最小跨度 2 半音；该跨度和权重为系统规则。分数用于孤立声调复练，采用相同参照及参数比较变化，考试等级和真实学习效果需要标注语料验证。连续语流、轻声与三声变调另行处理。
+
+专业示范来自 [英国开放大学 OpenLearn 的四声课程](https://www.open.edu/openlearn/mod/oucontent/view.php?id=106435&section=2)，按原声顺序截取 mā、má、mǎ、mà，并用 Praat 提取实际曲线。参考音及其曲线保留 The Open University (2020) 署名，许可为 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)，[课程许可说明](https://www.open.edu/openlearn/mod/oucontent/view.php?id=106436&section=__acknowledgements)。它们的许可独立于本仓库代码的 GPL-3.0-or-later。公开源码保留来源与曲线元数据，音频运行数据放在 `data/references`。部署时从课程的下载链接取得 `l197-pronunciation-10a.mp3`，执行 `python scripts/import_reference_audio.py --source "下载文件的完整路径"` 导入。
+
+纠正示范对本人的已保存单音节录音做 Praat PSOLA 声调重合成，按参照调整 F0 并保留音色和时长；产物与原录音一同保留或删除。[Parselmouth 方法说明](https://parselmouth.readthedocs.io/en/stable/examples/pitch_manipulation.html)。RMS 图以 dBFS 表示数字录音音量。
 
 ## 接口
 

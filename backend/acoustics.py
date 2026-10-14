@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import parselmouth
+from .scoring import evaluate
 
 MAX_SECONDS = 30
 PRAAT_LOCK = threading.Lock()
@@ -84,11 +85,11 @@ def teaching_feedback(tone: int, features: dict | None, quality: dict) -> list[s
         measured += f"可见先降后升走势，最低点位于首尾有效 F0 时间跨度的约 {features['minimum_position']*100:.0f}% 处。"
     if quality["warnings"]:
         measured += "录音存在质量提示，建议先回听并检查选区。"
-    return [measured, descriptions[tone], "再录一次，比较自己的两次曲线；当前反馈是走势描述，尚未校准教学评分。"]
+    return [measured, descriptions[tone], "固定录音设置再练三次，比较目标曲线和本人两次的升降变化。"]
 
 
 def analyze(samples: np.ndarray, rate: int, tone: int, floor: float, ceiling: float,
-            start: float | None, end: float | None, harness=None) -> dict:
+            start: float | None, end: float | None, harness=None, reference=None) -> dict:
     def begin(stage):
         if harness:
             harness.begin(stage)
@@ -162,17 +163,22 @@ def analyze(samples: np.ndarray, rate: int, tone: int, floor: float, ceiling: fl
     finish('已计算观测特征' if features else '有效 F0 不足，特征保留为空')
     quality = {"valid_frames": int(valid.sum()), "total_frames": len(f0),
                "clipped_fraction": round(clipping, 5), "octave_jumps": jumps, "warnings": warnings}
-    begin('tone.feedback')
-    feedback = teaching_feedback(tone, features, quality)
-    finish('已生成基于观测的教学反馈；未产生未经校准的评分')
-    return {
+    result = {
         "tone": tone, "duration_s": round(duration, 5), "sample_rate_hz": rate,
         "selection": {"start_s": round(offset, 5), "end_s": round(last / rate, 5), "automatic": automatic},
         "time_s": [round(float(t), 5) for t in times],
         "f0_hz": [round(float(v), 3) if v > 0 else None for v in f0],
         "waveform": waveform(samples), "features": features, "quality": quality,
-        "feedback": feedback,
+        "energy_dbfs": [round(20*math.log10(max(float(np.sqrt(np.mean(
+            selected[max(0,int((t-offset)*rate)-int(rate*.01)):min(len(selected),int((t-offset)*rate)+int(rate*.01))]**2))),1e-5)),2) for t in times],
         "algorithm": {"method": "raw_autocorrelation", "parselmouth_version": parselmouth.__version__,
                       "praat_version": parselmouth.PRAAT_VERSION, "step_s": 0.01,
                       "pitch_floor_hz": floor, "pitch_ceiling_hz": ceiling},
     }
+    begin('tone.score')
+    result['score']=evaluate(result,reference)
+    finish(f"轮廓分 {result['score']['total']}；已保存参照与计算版本" if result['score']['total'] is not None else result['score']['reason'])
+    begin('tone.feedback')
+    result['feedback']=teaching_feedback(tone,features,quality)
+    finish('已生成曲线解释与复练建议')
+    return result

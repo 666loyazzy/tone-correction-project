@@ -1,17 +1,18 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "analysis_steps": [
     {"id":"audio.decode","label":"校验与解码","skill":"recording-quality"},
     {"id":"audio.segment","label":"确定发音选区","skill":"recording-quality"},
     {"id":"praat.extract","label":"Praat 基频提取","skill":"praat-f0"},
     {"id":"audio.quality","label":"检查录音质量","skill":"recording-quality"},
     {"id":"tone.features","label":"计算声学特征","skill":"tone-analysis"},
+    {"id":"tone.score","label":"参照对比与评分","skill":"tone-scoring"},
     {"id":"tone.feedback","label":"生成练习建议","skill":"tone-teaching"},
     {"id":"chart.prepare","label":"准备可视化数据","skill":"chart-data"},
     {"id":"memory.update","label":"更新学习记忆","skill":"learning-memory"}
   ],
   "chat_steps": ["校验会话与练习权限","计算证据与复练变化","加载回复规范与资料","生成分析与练习建议","校验事实与表述","保存对话"],
-  "required_chat_skills": ["scientific-response", "anti-defensive-writing", "tone-teaching", "tone-analysis"],
+  "required_chat_skills": ["scientific-response", "anti-defensive-writing", "tone-teaching", "tone-analysis", "tone-scoring"],
   "chat_workflow": [
     {"id":"chat.authorize","label":"校验会话与练习权限","skill":"tone-analysis"},
     {"id":"chat.evidence","label":"计算证据与复练变化","skill":"tone-analysis"},

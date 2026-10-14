@@ -28,6 +28,10 @@ from .jobs import cleanup, practice_directory, queued_analysis, run_analysis
 from .memory import load_memory
 from .tutor import answer, retrieve, validate_answer
 from .scientific import evidence
+from .scoring import ensure_score
+from .progress import router as progress_router, selected_reference
+from .resynthesis import resynthesize
+from .acoustics import AudioError
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_BYTES = 12 * 1024 * 1024
@@ -59,6 +63,7 @@ async def lifespan(app):
 
 app = FastAPI(title='声调纠正项目 · 声调纠正系统', version='1.0.0', lifespan=lifespan)
 app.include_router(auth_router)
+app.include_router(progress_router)
 
 
 @app.middleware('http')
@@ -100,7 +105,7 @@ def owned_practice(db, practice_id: str, user: User, allow_teacher=False):
 
 def serialize_practice(practice):
     return {'id':practice.id, 'tone':practice.tone, 'filename':practice.filename,
-            'created_at':practice.created_at, 'state':practice.state, 'result':practice.result,
+            'created_at':practice.created_at, 'state':practice.state, 'result':ensure_score(practice.result),
             'error':practice.error, 'trace':practice.trace,
             'audio_available':(practice_directory(practice.id)/'audio.wav').exists()}
 
@@ -113,6 +118,7 @@ async def create_analysis(background: BackgroundTasks,
     pitch_ceiling: Annotated[float, Form()] = 600,
     start_s: Annotated[float | None, Form()] = None,
     end_s: Annotated[float | None, Form()] = None,
+    reference_id: Annotated[str | None, Form()] = None,
     user: User = Depends(current_user)):
     practice_id = identifier()
     directory = practice_directory(practice_id)
@@ -142,7 +148,8 @@ async def create_analysis(background: BackgroundTasks,
                 raise HTTPException(429, '已有练习正在分析，请稍候。')
             db.add(Practice(id=practice_id, user_id=user.id, tone=tone,
                 filename=Path(file.filename or 'recording').name[:120], parameters={
-                    'floor':pitch_floor, 'ceiling':pitch_ceiling, 'start':start_s, 'end':end_s},
+                    'floor':pitch_floor, 'ceiling':pitch_ceiling, 'start':start_s, 'end':end_s,
+                    'reference':selected_reference(user,tone,reference_id)},
                 trace=initial_trace()))
             db.commit()
         if QUEUE_MODE == 'celery':
@@ -197,6 +204,21 @@ def export(practice_id: str, user: User = Depends(current_user)):
     writer.writerows(zip(result['time_s'],result['f0_hz']))
     return Response('\ufeff'+output.getvalue(),media_type='text/csv;charset=utf-8',
                     headers={'Content-Disposition':f'attachment; filename="f0-{practice_id}.csv"'})
+
+
+@app.get('/api/practices/{practice_id}/corrected-audio')
+async def corrected_audio(practice_id: str,user: User=Depends(current_user)):
+    with SessionLocal() as db:
+        result=ensure_score(owned_practice(db,practice_id,user,allow_teacher=True).result)
+    if not result:raise HTTPException(409,'请先完成声学分析。')
+    folder=practice_directory(practice_id);source=folder/'audio.wav'
+    if not source.exists():raise HTTPException(404,'原录音已过保留期，请重新录音。')
+    destination=folder/('corrected-'+result['score']['comparison_key']+'.wav')
+    if not destination.exists():
+        try:await asyncio.to_thread(resynthesize,source,destination,result)
+        except (AudioError,RuntimeError) as exc:
+            raise HTTPException(400,str(exc) if isinstance(exc,AudioError) else '纠正示范生成未完成，请换一段清晰的完整音节。') from None
+    return FileResponse(destination,media_type='audio/wav')
 
 
 @app.delete('/api/practices/{practice_id}')
@@ -296,7 +318,7 @@ async def run_chat(body: ChatRequest,user: User,on_trace=None):
         practice=owned_practice(db,body.analysis_id,user) if body.analysis_id else None
         if practice and (practice.state != 'completed' or not practice.result):
             raise HTTPException(409,'请等待这次练习完成声学分析。')
-        result=practice.result if practice else None
+        result=ensure_score(practice.result) if practice else None
         target_tone=practice.tone if practice else body.tone
         past=db.scalars(select(Message).where(Message.conversation_id==row.id)
                         .order_by(Message.created_at.desc()).limit(10)).all()
@@ -308,7 +330,7 @@ async def run_chat(body: ChatRequest,user: User,on_trace=None):
                 Practice.state=='completed', Practice.created_at<practice.created_at)
                 .order_by(Practice.created_at.desc()).limit(1))
             if prior and prior.result:
-                previous={'id':prior.id, 'created_at':prior.created_at, 'result':prior.result}
+                previous={'id':prior.id, 'created_at':prior.created_at, 'result':ensure_score(prior.result)}
     harness.end('会话及练习由服务器校验权限；声调以保存的练习为准')
     harness.begin('chat.evidence')
     memory=load_memory(user.id)

@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 TEST_DIRECTORY = tempfile.TemporaryDirectory(prefix='tone_correction-unit-')
 os.environ['DATA_DIR'] = TEST_DIRECTORY.name
+os.environ['DATABASE_URL'] = 'sqlite:///' + str(Path(TEST_DIRECTORY.name)/'tone_correction.sqlite3').replace('\\','/')
 
 import numpy as np
 import httpx

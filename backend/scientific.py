@@ -35,6 +35,7 @@ def evidence(result: dict | None, previous: dict | None = None) -> dict | None:
         'experiment': EXPERIMENTS[result['tone']],
         'interpretation_scope': '同一人的声学观测与可重复练习；无教师参考音、说话者音域校准或评分模型。最低 F0 的位置不是语言学 TP 的自动标注。',
         'minimum_position_definition': '最低点相对位置=(最低有效 F0 时间-首个有效 F0 时间)/(末个有效 F0 时间-首个有效 F0 时间)，分母不是整个选区时长。',
+        'score':result.get('score'), 'score_change':None,
     }
     times = np.asarray(result['time_s'])
     start, end = result['selection']['start_s'], result['selection']['end_s']
@@ -61,6 +62,10 @@ def evidence(result: dict | None, previous: dict | None = None) -> dict | None:
         if features and prior_features and matching:
             for key in ('selected_duration_s', 'end_minus_start_semitones', 'minimum_position'):
                 output['comparison']['changes'][key] = round(features[key] - prior_features[key], 4)
+        current_score=result.get('score');prior_score=prior.get('score')
+        if current_score and prior_score and current_score['comparison_key']==prior_score['comparison_key'] and current_score['total'] is not None and prior_score['total'] is not None:
+            output['previous_score']=prior_score['total']
+            output['score_change']=round(current_score['total']-prior_score['total'],1)
     return output
 
 
@@ -103,4 +108,8 @@ def local_feedback(measured: dict | None) -> str:
         observation+='统一两次的提取参数和发音选区，再比较升降幅度与衔接位置。'
     else:
         observation+='保留这次曲线，作为下一次同声调练习的对照。'
+    score=measured.get('score') or {}
+    if score.get('total') is not None:
+        point=f"本次声调轮廓分 {score['total']:.1f} 分。"+point
+        if measured.get('score_change') is not None:point+=f"较上次同参照练习 {measured['score_change']:+.1f} 分。"
     return '\n\n'.join([point, observation, '下一轮这样练：'+measured['experiment']])

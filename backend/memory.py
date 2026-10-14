@@ -28,7 +28,9 @@ def remember_practice(user_id: str, practice_id: str, result: dict):
             return '长期记忆已关闭，未写入摘要'
         fact = {'practice_id':practice_id, 'created_at':time.time(), 'tone':result['tone'],
                 'features':result['features'], 'quality_warnings':result['quality']['warnings'],
-                'algorithm':result['algorithm'], 'version':'1.0.0'}
+                'algorithm':result['algorithm'], 'score':None if not result.get('score') else {
+                    'total':result['score']['total'],'reference_name':result['score']['reference']['name'],
+                    'comparison_key':result['score']['comparison_key'],'version':result['score']['version']}, 'version':'1.1.0'}
         memory.facts = [fact] + [entry for entry in memory.facts if entry['practice_id'] != practice_id][:19]
         memory.updated_at = time.time()
         db.commit()

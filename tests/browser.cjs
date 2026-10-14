@@ -42,6 +42,20 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     assert.equal(await page.locator('.right-column > .science-panel').count(),1);
     assert.equal(await page.locator('#science-visuals').evaluate(el=>el.closest('section')===document.querySelector('#messages').closest('section')),true);
     assert.equal(await page.locator('#analysis-flow').isVisible(),false);
+    await page.waitForFunction(()=>document.querySelector('#reference-select').options.length>0);
+    if(await page.locator('#reference-select option[value="openlearn-ma-3"]').count()){
+      for(const tone of [1,2,3,4]){
+        await page.click(`.tone[data-tone="${tone}"]`);
+        await page.waitForFunction(t=>document.querySelector('#reference-select').value==='openlearn-ma-'+t,tone);
+        await page.click('#play-reference');
+        await page.waitForFunction(()=>!document.querySelector('#reference-audio').paused && document.querySelector('#reference-audio').readyState>=2);
+        assert.ok(await page.locator('#reference-audio').evaluate(audio=>audio.duration>0));
+        await page.locator('#reference-audio').evaluate(audio=>audio.pause());
+      }
+      await page.click('.tone[data-tone="3"]');await page.waitForFunction(()=>document.querySelector('#reference-select').value==='openlearn-ma-3');
+    }
+    let releaseFirstReply;const firstReplyGate=new Promise(resolve=>releaseFirstReply=resolve);let held=false;
+    await page.route('**/api/chat/stream',async route=>{if(!held){held=true;await firstReplyGate;}await route.continue();});
     await page.screenshot({path:path.join(artifacts,'desktop-empty.png'),fullPage:true});
     const initialCount=Number(await page.locator('#history-count').textContent());
     await page.click('#record');await page.waitForSelector('#record.recording');
@@ -52,7 +66,10 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     await page.locator('#audio').evaluate(audio=>audio.play());
     assert.equal(await page.locator('#audio').evaluate(audio=>audio.paused),false);
     await page.locator('#audio').evaluate(audio=>audio.pause());
-    await page.click('#analyze');await page.waitForFunction(()=>document.querySelector('#flow-status').textContent==='已完成',null,{timeout:30000});
+    await page.click('#analyze');await page.waitForSelector('#thinking:not([hidden])');
+    assert.equal(await page.locator('#score-dashboard').isVisible(),true);
+    await page.waitForFunction(()=>!document.querySelector('#thinking-time').textContent.includes('0 秒'));
+    releaseFirstReply();await page.waitForFunction(()=>document.querySelector('#flow-status').textContent==='已完成',null,{timeout:30000});
     await page.waitForFunction(()=>!document.querySelector('#analyze').disabled);
     await page.waitForSelector('#science-visuals:not([hidden])');
     assert.equal(await page.locator('#science-quality-plot svg').count(),1);
@@ -64,6 +81,17 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     assert.equal(await page.locator('#chat-trace li.completed').count(),6);
     assert.equal(await page.locator('#agent-nodes .completed').count(),6);
     assert.equal(await page.locator('#analysis-flow').isVisible(),true);
+    assert.equal(await page.locator('#thinking').isVisible(),false);
+    assert.ok(Number(await page.locator('#score-value').textContent())>=0);
+    assert.equal(await page.locator('#standard-overlay .target-line').count(),1);
+    assert.equal(await page.locator('#score-records tr').count(),1);
+    await page.click('[data-viz-tab="dimensions"]');assert.equal(await page.locator('#dimension-radar .radar-value').count(),1);
+    await page.click('[data-viz-tab="energy"]');assert.equal(await page.locator('#energy-chart .energy-line').count(),1);
+    await page.click('[data-viz-tab="history"]');assert.equal(await page.locator('#score-trend .score-dot').count(),1);
+    await page.click('[data-viz-tab="standard"]');
+    await page.click('#generate-corrected');await page.waitForFunction(()=>!document.querySelector('#corrected-audio').hidden && document.querySelector('#corrected-audio').readyState>=2);
+    assert.ok(await page.locator('#corrected-audio').evaluate(audio=>audio.duration>0));
+    await page.locator('#corrected-audio').evaluate(audio=>audio.pause());
     assert.equal(await page.evaluate(()=>Boolean(document.querySelector('#analyze').compareDocumentPosition(document.querySelector('#analysis-flow')) & Node.DOCUMENT_POSITION_FOLLOWING)),true);
     assert.equal(await page.locator('#chart .f0-line').count(),1);
     await page.fill('#chat-input','三声的低音区怎么观察？');await page.click('#chat-send');
@@ -78,6 +106,7 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     await page.click('#analyze');await page.waitForFunction(()=>document.querySelector('#flow-status').textContent==='已完成',null,{timeout:30000});
     await page.waitForFunction(()=>!document.querySelector('#analyze').disabled);await page.check('#compare');
     assert.equal(await page.locator('#science-comparison > div').count(),3);
+    assert.equal(await page.locator('#score-records tr').count(),2);
     assert.equal(await page.locator('#chart .previous-line').count(),1);
     await page.evaluate(()=>window.scrollTo(0,0));
     await page.screenshot({path:path.join(artifacts,'desktop-analysis.png'),fullPage:true});
@@ -86,6 +115,7 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     assert.equal(await page.locator('#memory-goal').inputValue(),'重点比较三声的两次曲线');
     await page.click('[data-close="memory-dialog"]');
     await page.locator('.history-item').first().click();await page.waitForFunction(()=>!document.querySelector('#export').disabled);
+    assert.equal(await page.locator('#score-records tr').count(),2);
     assert.equal(await page.locator('#chart .f0-line').count(),1);
     await page.setViewportSize({width:390,height:844});
     await page.click('#science-generate');await page.waitForFunction(()=>!document.querySelector('#science-generate').disabled);
@@ -95,7 +125,7 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     await page.click('#record');await page.waitForFunction(()=>document.querySelector('#record-status').textContent.includes('未获授权'));
     assert.equal(await page.locator('#upload').isEnabled(),true);
     assert.deepEqual(errors,[]);
-    console.log('Browser checks passed: recording, final audio, microphone release, Praat, 8 harness stages, chat, memory, repeat comparison, reload history, mobile layout, permission failure.');
+    console.log('Browser checks passed: recording, Praat, nine acoustic stages, reference playback, corrected audio, scoring charts, score history, thinking animation, chat, memory, mobile layout and permission failure.');
   }finally{await browser.close();}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

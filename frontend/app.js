@@ -1,4 +1,5 @@
 import {BrowserRecorder, audioExtension} from './recorder.js';
+import {renderDashboard,startThinking,thinkingStage,stopThinking} from './progress.js';
 
 const $ = selector => document.querySelector(selector);
 const tones = ['mā', 'má', 'mǎ', 'mà'];
@@ -7,6 +8,7 @@ const state = {tone: 3, blob: null, url: null, duration: 0, waveform: [],
   cropEdited: false, result: null, busy: false, generation: 0, chatBusy: false,
   user: null, practiceId: null, conversationId: null, reviewOnly: false, modelConfigured: null};
 let history = [];
+let scoreRecords=[],references=[],referenceRequest=0,correctedUrl;
 let requestController;
 let authMode = 'login';
 let authStatus = {needs_setup:false, setup_token_required:false};
@@ -45,9 +47,29 @@ function showAuth() {
 }
 
 async function loadHistory() {
-  const data = await api('/api/practices');
+  const [data,scores]=await Promise.all([api('/api/practices'),api('/api/scores?tone='+state.tone)]);
+  scoreRecords=scores.records;
   history = data.practices.map(item => ({...item, created:new Date(item.created_at*1000).toISOString()}));
-  renderHistory();
+  renderHistory();renderDashboard(state.result,scoreRecords,state.tone,state.practiceId);
+}
+
+async function loadReferences(){
+  const request=++referenceRequest,tone=state.tone;
+  const data=await api('/api/references?tone='+tone);
+  if(request!==referenceRequest)return;
+  references=data.references;
+  const select=$('#reference-select'),previous=select.value;select.replaceChildren();
+  for(const reference of references){const option=document.createElement('option');option.value=reference.id;option.textContent=reference.name;select.append(option);}
+  if(references.some(reference=>reference.id===previous))select.value=previous;
+  updateReferencePlayer();updateButtons();
+}
+function updateReferencePlayer(){
+  const reference=references.find(item=>item.id===$('#reference-select').value);
+  $('#play-reference').disabled=!reference?.audio_url;
+  $('#reference-audio').pause();$('#reference-audio').hidden=true;
+  $('#reference-audio').removeAttribute('src');
+  if(reference?.audio_url)$('#reference-audio').src=reference.audio_url;
+  $('#reference-status').textContent=reference?.kind==='schematic'?'教学目标示意；选择真人示范可回听原声。':'下次分析使用所选示范。点击“听示范”播放原声。';
 }
 
 async function loadConversations() {
@@ -70,6 +92,7 @@ async function loggedIn(user) {
   state.modelConfigured=config.model_configured;renderAgentFlow();
   $('#chat-mode').textContent=config.model_configured?'模型问答':'本地教学规则';
   await loadHistory();await loadConversations();
+  $('#upload-reference').hidden=user.role!=='teacher';await loadReferences();
 }
 
 function notify(message, error = false) {
@@ -85,13 +108,15 @@ function updateButtons() {
   $('#recording-stage').classList.toggle('recording', recorder.state === 'recording');
   $('#recording-label').textContent = ({requesting:'等待麦克风授权', recording:'正在录音', stopping:'整理音频中'})[recorder.state] || (state.blob ? '录音已就绪' : '准备好，就开始');
   $('#upload').disabled = captureBusy || state.busy;
-  $('#analyze').disabled = !state.blob || state.busy || captureBusy || state.chatBusy;
+  $('#analyze').disabled = !state.blob || state.busy || captureBusy || state.chatBusy || !references.some(item=>item.tone===state.tone&&item.id===$('#reference-select').value);
   $('#analyze').textContent = state.busy ? '正在提取声调…' : '分析这次发音 ↗';
   $('#export').disabled = !state.result;
   $('#science-generate').disabled = !state.result || state.reviewOnly || state.busy || state.chatBusy;
+  $('#play-reference').disabled=captureBusy||state.busy||!references.find(item=>item.id===$('#reference-select').value)?.audio_url;
+  $('#generate-corrected').disabled=captureBusy||state.busy||!state.result?.score||state.result.score.total===null;
   $('#delete-practice').hidden = !state.practiceId || state.reviewOnly;
   $('#delete-practice').disabled = state.busy || captureBusy;
-  for (const element of document.querySelectorAll('.tone, #start, #end, #floor, #ceiling, .history-item')) {
+  for (const element of document.querySelectorAll('.tone, #start, #end, #floor, #ceiling, #reference-select, #upload-reference, .history-item')) {
     element.disabled = captureBusy || state.busy;
   }
   $('#download').hidden = captureBusy;
@@ -106,6 +131,7 @@ function chooseTone(tone) {
     button.setAttribute('aria-pressed', String(selected));
   });
   $('#exercise-note').textContent = `以舒适音量完整读一次“${tones[tone - 1]}”。` + (tone === 3 ? '这里练习的是孤立三声。' : '一次录一个音节，读完后点击停止。');
+  if(state.user)loadReferences().catch(error=>notify(error.message,true));
 }
 
 function addMessage(text, role = 'assistant', sources = []) {
@@ -224,10 +250,11 @@ async function sendTeaching(message,withVisuals=false){
   if(state.chatBusy)return;
   const analysisId=state.reviewOnly?null:state.practiceId;
   state.chatBusy=true;$('#chat-send').disabled=true;updateButtons();
+  startThinking(state.modelConfigured);
   if(withVisuals)$('#science-status').textContent='正在结合曲线生成发音分析与练习建议…';
   try{
     const data=await streamTeaching({message,tone:state.tone,conversation_id:state.conversationId,analysis_id:analysisId},trace=>{
-      renderChatTrace(trace);if(state.practiceId===analysisId)renderAgentFlow(trace);
+      renderChatTrace(trace);thinkingStage(trace);if(state.practiceId===analysisId)renderAgentFlow(trace);
     });
     state.conversationId=data.conversation_id;
     if(withVisuals&&state.practiceId===analysisId)showEvidenceVisuals(data);
@@ -236,7 +263,7 @@ async function sendTeaching(message,withVisuals=false){
     $('#chat-mode').textContent=data.mode==='api'?'DeepSeek 发音分析':data.mode==='guarded'?'实测练习建议':'实测证据 · 本地规则';
     await loadConversations();
   }catch(error){addMessage(error.message);if(error.trace){renderChatTrace(error.trace);renderAgentFlow(error.trace);}if(withVisuals)$('#science-status').textContent='回复未完成，可点击重新解读';}
-  finally{state.chatBusy=false;$('#chat-send').disabled=false;updateButtons();}
+  finally{stopThinking();state.chatBusy=false;$('#chat-send').disabled=false;updateButtons();}
 }
 
 function renderWaveform() {
@@ -263,6 +290,10 @@ async function setAudio(blob, filename, elapsed = 0) {
   state.duration = elapsed;
   state.waveform = [];
   state.result = null;
+  if(correctedUrl){URL.revokeObjectURL(correctedUrl);correctedUrl=null;}
+  $('#corrected-audio').pause();$('#corrected-audio').removeAttribute('src');$('#corrected-audio').hidden=true;
+  $('#correction-status').textContent='按照所选参照调整声调，保留本人音色和单音节时长。';
+  renderDashboard(null,scoreRecords,state.tone,null);
   clearEvidenceVisuals();
   state.practiceId = null;
   state.reviewOnly = false;
@@ -358,7 +389,7 @@ function renderHistory() {
   }
   history.forEach(item => {
     const button=document.createElement('button'); button.className='history-item'; button.type='button';
-    const text=document.createElement('span'); text.textContent=`${tones[item.tone-1]} · ${item.state==='completed'?'已完成':item.state==='failed'?'需重录':'分析中'}`;
+    const text=document.createElement('span'); text.textContent=`${tones[item.tone-1]} · ${item.result?.score?.total!==null&&item.result?.score?.total!==undefined?item.result.score.total.toFixed(1)+'分':item.state==='completed'?'已完成':item.state==='failed'?'需重录':'分析中'}`;
     const time=document.createElement('small'); time.textContent=new Date(item.created).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
     button.append(text,time); $('#history').append(button);
     button.addEventListener('click', () => openPractice(item));
@@ -402,7 +433,9 @@ async function openPractice(item, reviewOnly=false) {
     }
     state.result=row.result;state.practiceId=row.id;state.reviewOnly=reviewOnly;
     renderChart();renderWaveform();showQuality(row.result);showTrace(row);
-    addMessage(row.result.feedback);
+    const scores=await api('/api/scores?tone='+row.tone);scoreRecords=scores.records;
+    renderDashboard(row.result,scoreRecords,row.tone,row.id);
+    $('#science-status').textContent='已载入当前曲线与轮廓分，点击“重新解读”继续分析。';
     notify(row.audio_available?'已载入这次练习的录音和曲线，可回听或复练。':'已载入曲线；音频已过保留期。');
   } catch(error) {notify(error.message,true);}
   finally {state.busy=false;updateButtons();}
@@ -435,7 +468,7 @@ recorder.addEventListener('recorded', event => {
 $('#record').addEventListener('click', () => {
   if (recorder.state==='recording') recorder.stop();
   else if (recorder.state==='requesting') recorder.cancelPermission();
-  else { $('#audio').pause(); recorder.start(); }
+  else { $('#audio').pause();$('#reference-audio').pause();$('#corrected-audio').pause();recorder.start(); }
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) recorder.interrupt(); });
 window.addEventListener('pagehide', () => { recorder.dispose(); requestController?.abort(); if (state.url) URL.revokeObjectURL(state.url); });
@@ -443,7 +476,7 @@ window.addEventListener('pageshow', event => {
   if (event.persisted) location.reload();
 });
 document.querySelectorAll('.tone').forEach(button => button.addEventListener('click', () => {
-  chooseTone(Number(button.dataset.tone)); state.result=null; renderChart(); clearEvidenceVisuals();$('#quality').hidden=true; updateButtons();
+  chooseTone(Number(button.dataset.tone)); state.result=null; renderChart(); renderDashboard(null,[],state.tone,null);clearEvidenceVisuals();$('#quality').hidden=true; updateButtons();
 }));
 $('#upload').addEventListener('click', () => $('#file').click());
 $('#file').addEventListener('change', () => {
@@ -460,6 +493,7 @@ $('#analyze').addEventListener('click', async () => {
   const form=new FormData();
   form.append('file',state.blob,'recording.'+audioExtension(state.blob.type));
   form.append('tone',String(state.tone));
+  if($('#reference-select').value)form.append('reference_id',$('#reference-select').value);
   form.append('pitch_floor',$('#floor').value); form.append('pitch_ceiling',$('#ceiling').value);
   if (state.cropEdited) {
     const start=Number($('#start').value), end=Number($('#end').value);
@@ -496,6 +530,32 @@ $('#chat-form').addEventListener('submit',async event=>{
   addMessage(message,'user');$('#chat-input').value='';await sendTeaching(message);
 });
 $('#science-generate').addEventListener('click',()=>sendTeaching(sciencePrompt,true));
+$('#reference-select').addEventListener('change',updateReferencePlayer);
+$('#play-reference').addEventListener('click',async()=>{
+  $('#audio').pause();$('#corrected-audio').pause();$('#reference-audio').hidden=false;
+  try{await $('#reference-audio').play();}catch{notify('示范音已载入，请点击播放器的播放键。');}
+});
+$('#upload-reference').addEventListener('click',()=>$('#reference-file').click());
+$('#reference-file').addEventListener('change',async()=>{
+  const file=$('#reference-file').files[0];$('#reference-file').value='';if(!file)return;
+  const form=new FormData();form.append('file',file);form.append('tone',String(state.tone));form.append('name','教师示范 · '+tones[state.tone-1]);
+  $('#upload-reference').disabled=true;
+  try{const reference=await api('/api/references',{method:'POST',body:form});await loadReferences();$('#reference-select').value=reference.id;updateReferencePlayer();notify('教师示范已保存，后续分析按这条真实曲线评分。');}
+  catch(error){notify(error.message,true);}finally{$('#upload-reference').disabled=false;}
+});
+$('#generate-corrected').addEventListener('click',async()=>{
+  const id=state.practiceId;if(!id)return;$('#generate-corrected').disabled=true;$('#correction-status').textContent='正在按参照曲线调整本人录音的声调…';
+  try{
+    const response=await fetch('/api/practices/'+id+'/corrected-audio');
+    if(!response.ok){const data=await response.json();throw new Error(data.detail);}
+    const blob=await response.blob();if(state.practiceId!==id)return;
+    if(correctedUrl)URL.revokeObjectURL(correctedUrl);correctedUrl=URL.createObjectURL(blob);
+    $('#audio').pause();$('#reference-audio').pause();$('#corrected-audio').src=correctedUrl;$('#corrected-audio').hidden=false;
+    $('#correction-status').textContent='已按参照调整声调，保留本人音色与单音节时长。和原录音交替回听、跟读。';
+    await $('#corrected-audio').play();
+  }catch(error){$('#correction-status').textContent=error.message||'请点击播放器的播放键。';}
+  finally{$('#generate-corrected').disabled=!state.result?.score||state.result.score.total===null;}
+});
 window.addEventListener('resize',drawAgentLines);
 renderAgentFlow();
 

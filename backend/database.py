@@ -88,6 +88,16 @@ class Conversation(Base):
     updated_at: Mapped[float] = mapped_column(Float, default=time.time, index=True)
 
 
+class ToneReference(Base):
+    __tablename__ = 'tone_references'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=identifier)
+    teacher_id: Mapped[str] = mapped_column(ForeignKey('users.id'), index=True)
+    tone: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(String(60))
+    curve: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
 class Message(Base):
     __tablename__ = 'messages'
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=identifier)
