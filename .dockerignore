@@ -1,0 +1,12 @@
+.git
+.env
+.venv
+artifacts
+tests
+__pycache__
+data
+backups
+runtime
+logs
+*.pyc
+README.md

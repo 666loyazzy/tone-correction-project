@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "analysis_steps": [
+    {"id":"audio.decode","label":"校验与解码","skill":"recording-quality"},
+    {"id":"audio.segment","label":"确定发音选区","skill":"recording-quality"},
+    {"id":"praat.extract","label":"Praat 基频提取","skill":"praat-f0"},
+    {"id":"audio.quality","label":"检查录音质量","skill":"recording-quality"},
+    {"id":"tone.features","label":"计算声学特征","skill":"tone-analysis"},
+    {"id":"tone.feedback","label":"生成练习建议","skill":"tone-teaching"},
+    {"id":"chart.prepare","label":"准备可视化数据","skill":"chart-data"},
+    {"id":"memory.update","label":"更新学习记忆","skill":"learning-memory"}
+  ],
+  "chat_steps": ["校验会话权限","载入分析与学习记忆","召回教学 skill 与资料","生成回答","校验输出","保存对话"]
+}

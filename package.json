@@ -1,0 +1,1 @@
+{"name":"tone_correction-tone-lab","private":true,"type":"module","scripts":{"test":"node --test tests/recorder.test.mjs"}}

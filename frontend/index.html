@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f4f3ef">
+  <title>声调纠正系统</title>
+  <link rel="stylesheet" href="/assets/style.css">
+  <script type="module" src="/assets/app.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="声调纠正系统首页"><span class="brand-icon">声</span><span>声调纠正系统<span class="brand-sub">汉语语音训练</span></span></a>
+      <div class="sidebar-caption">让每一次练习，都看得见</div>
+      <button class="nav-item selected" type="button" id="practice-nav"><span>◉</span> 声调练习 <span class="nav-arrow">↗</span></button>
+      <div class="sidebar-label">我的练习记录 <span id="history-count">0</span></div>
+      <div id="history" class="history"><p class="empty-history">完成分析后，你的练习<br>会出现在这里。</p></div>
+      <button class="nav-item" id="memory-nav" type="button"><span>◇</span> 学习档案</button>
+      <button class="nav-item" id="teacher-nav" type="button" hidden><span>♧</span> 教师工作台</button>
+      <div class="sidebar-bottom"><span class="small-avatar">小</span><div><span id="user-name">学习者工作台</span><small>个人练习与学习记忆</small></div><button class="text-button" id="logout" type="button">退出</button></div>
+    </aside>
+    <main>
+      <header class="topbar"><div><span class="breadcrumb">学习工作台</span><span class="slash">/</span>声调练习</div><div class="topbar-actions"><button class="text-button mobile-account" id="mobile-memory" type="button">学习档案</button><span class="status-pill"><i></i> 录音与分析</span><button class="text-button mobile-account" id="mobile-logout" type="button">退出</button></div></header>
+      <div class="page-intro"><div><p class="eyebrow">听见变化 · 看见进步</p><h1>练习你的汉语声调</h1><p>录一段，听一遍。让声音的走势成为下一次练习的线索。</p></div><span class="intro-mark" aria-hidden="true">声</span></div>
+      <div class="workspace">
+        <section class="practice-panel card" aria-labelledby="practice-title">
+          <div class="section-title"><h2 id="practice-title">今天，练习哪一个声调？</h2><span class="step-label">01 / 选择</span></div>
+          <div class="tones" role="group" aria-label="选择目标声调">
+            <button class="tone" data-tone="1" aria-pressed="false"><span class="tone-curve">—</span><b>mā</b><small>一声 · 高平</small></button>
+            <button class="tone" data-tone="2" aria-pressed="false"><span class="tone-curve">↗</span><b>má</b><small>二声 · 上升</small></button>
+            <button class="tone active" data-tone="3" aria-pressed="true"><span class="tone-curve">∨</span><b>mǎ</b><small>三声 · 降升</small></button>
+            <button class="tone" data-tone="4" aria-pressed="false"><span class="tone-curve">↘</span><b>mà</b><small>四声 · 下降</small></button>
+          </div>
+          <div class="exercise-note"><span class="note-icon">i</span><p id="exercise-note">以舒适音量完整读一次“mǎ”。这里练习的是孤立三声。</p></div>
+          <div class="section-title recorder-heading"><h2>留下一次发音</h2><span class="step-label">02 / 录音</span></div>
+          <div class="recording-stage" id="recording-stage"><span class="recording-label" id="recording-label">准备好，就开始</span><strong id="clock">00:00.0</strong><div class="level-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>自然发音，一次一个音节</p></div>
+          <button class="primary record-button" id="record" type="button"><span class="mic-icon" aria-hidden="true">●</span><span id="record-text">开始录音</span></button>
+          <p class="record-status" id="record-status" role="status" aria-live="polite">点击后，浏览器会请求麦克风权限。最长 15 秒。</p>
+          <div class="record-options"><button class="text-button" id="upload" type="button">↑ 上传已有录音</button><button class="text-button" id="help" type="button">录音小提示 ↗</button><input id="file" type="file" accept="audio/*,.webm,.mp4,.m4a,.wav,.ogg,.mp3" hidden></div>
+          <div id="help-text" class="help-text" hidden>保持安静，离麦克风约 15–20 厘米，以舒适音量完整读一次。请先回听；若没有声音，检查麦克风输入设备和浏览器权限。</div>
+          <div id="preview" class="preview" hidden>
+            <div class="preview-heading"><b>回听这次录音</b><a id="download" download>下载 ↙</a></div>
+            <audio id="audio" controls preload="metadata"></audio>
+            <div id="waveform" class="waveform" aria-label="录音振幅波形"></div>
+            <div class="selection-controls"><label>起点 <input id="start" type="number" min="0" step="0.01" value="0"> 秒</label><label>终点 <input id="end" type="number" min="0" step="0.01" value="0"> 秒</label></div>
+            <p class="selection-note">首次分析会建议发音选区；也可调整起止时间，包含一次完整发音。</p>
+            <details><summary>分析设置</summary><div class="analysis-settings"><label>F0 下限 <input id="floor" type="number" value="75" min="50" max="999"> Hz</label><label>F0 上限 <input id="ceiling" type="number" value="600" min="51" max="1000"> Hz</label></div></details>
+            <button class="primary analyze-button" id="analyze" type="button">分析这次发音 <span>↗</span></button>
+          </div>
+          <div id="analysis-flow" class="analysis-flow" hidden><div class="flow-heading"><b>本次分析流程</b><span id="flow-status">等待分析</span></div><ol id="trace"></ol></div>
+          <p class="privacy-note">点击分析后，录音和练习结果保存到你的账号。录音默认保留 30 天，可在练习记录中删除。</p>
+        </section>
+        <div class="right-column">
+          <section class="analysis-panel card" aria-labelledby="analysis-title"><div class="section-title"><h2 id="analysis-title">你的声调曲线</h2><span class="step-label">03 / 观察</span></div><div class="chart-legend"><span><i></i> 本次练习</span><label><input type="checkbox" id="compare"> 对比上次</label><span class="unit">F0 · Hz</span></div><div id="chart" class="chart"><div class="empty-chart"><svg viewBox="0 0 240 80" aria-hidden="true"><path d="M5 12 C45 22 56 70 110 68 S180 30 235 8"/></svg><b>你的声音，会在这里留下曲线</b><p>完成一次录音并分析，观察音高如何随时间变化。</p></div></div><div id="metrics" class="metrics"><div><small>最低音高</small><strong>— <em>Hz</em></strong></div><div><small>结束音高</small><strong>— <em>Hz</em></strong></div><div><small>分析选区</small><strong>— <em>秒</em></strong></div></div><div id="quality" class="quality" hidden></div><div class="chart-foot"><span>断线表示没有有效基频</span><div class="chart-actions"><button id="delete-practice" class="text-button" type="button" hidden>删除本次</button><button id="export" class="text-button" type="button" disabled>导出数据 ↙</button></div></div></section>
+          <section class="tutor-panel card" aria-labelledby="tutor-title"><div class="section-title"><h2 id="tutor-title"><span class="tutor-symbol">✦</span> 声调练习建议</h2><button id="new-chat" type="button" class="text-button">新对话 ＋</button></div><div class="chat-history-controls"><select id="conversation-select" aria-label="选择历史对话"><option value="">当前新对话</option></select><button id="delete-chat" class="text-button" type="button" hidden>删除对话</button><span id="chat-mode" class="tutor-badge">声调教学助手</span></div><div id="messages" class="messages" role="log" aria-live="polite"><div class="message assistant"><span class="avatar">声</span><div><p>你好，欢迎来到声调纠正系统。</p><p>先选择一个声调，录一次完整发音。我会结合曲线，帮你观察走势，并给出下一次练习的建议。</p></div></div></div><form id="chat-form" class="composer"><label class="sr-only" for="chat-input">输入声调练习问题</label><input id="chat-input" placeholder="下一次练习，可以怎么改进…" maxlength="2000" autocomplete="off"><button type="submit" id="chat-send" aria-label="发送消息">↑</button></form><p id="chat-flow" class="chat-flow" hidden></p></section>
+        </div>
+      </div>
+      <footer>声调纠正系统 <span>从一次自然发音开始。</span></footer>
+    </main>
+  </div>
+  <dialog id="auth-dialog" class="dialog auth-dialog">
+    <div class="dialog-brand"><span class="brand-icon">声</span><span>声调纠正系统</span></div>
+    <h2 id="auth-title">欢迎回到声调纠正系统</h2><p id="auth-description">登录后保存录音、练习记录和学习记忆。</p>
+    <form id="auth-form"><label>账号<input id="auth-username" required minlength="3" maxlength="40" autocomplete="username" placeholder="英文、数字或下划线"></label><label>密码<input id="auth-password" type="password" required minlength="10" maxlength="128" autocomplete="current-password" placeholder="至少 10 个字符"></label><label id="display-field" hidden>你的名字<input id="auth-display" maxlength="50" placeholder="如何称呼你"></label><label id="invite-field" hidden>教师邀请码<input id="auth-invite" autocomplete="off"></label><label id="setup-field" hidden>初始化口令<input id="auth-setup" type="password" autocomplete="off"></label><p id="auth-error" class="dialog-error" role="alert"></p><button class="primary" id="auth-submit" type="submit">登录</button></form><button id="auth-switch" class="text-button" type="button">有邀请码？创建学习者账号</button>
+  </dialog>
+  <dialog id="memory-dialog" class="dialog"><div class="dialog-heading"><h2>我的学习档案</h2><button class="dialog-close" type="button" data-close="memory-dialog" aria-label="关闭学习档案">×</button></div><p>声调纠正系统根据你的练习目标和最近的观测结果安排建议。</p><form id="memory-form"><label>练习目标<textarea id="memory-goal" maxlength="500" rows="3"></textarea></label><label class="checkbox-label"><input id="memory-enabled" type="checkbox"> 使用长期学习记忆</label><div id="memory-facts" class="memory-facts"></div><p id="memory-status" class="dialog-status" role="status"></p><button class="primary" type="submit">保存学习档案</button></form><button id="clear-memory" class="text-button" type="button">清空练习摘要</button></dialog>
+  <dialog id="teacher-dialog" class="dialog"><div class="dialog-heading"><h2>教师工作台</h2><button class="dialog-close" type="button" data-close="teacher-dialog" aria-label="关闭教师工作台">×</button></div><p>邀请学习者加入，查看他们授权给你的练习。</p><button id="create-invite" class="primary" type="button">生成一个学习者邀请码</button><p id="invite-result" class="invite-result" role="status"></p><div id="student-list" class="student-list"></div></dialog>
+</body>
+</html>

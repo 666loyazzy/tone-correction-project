@@ -1,0 +1,6 @@
+{$SITE_ADDRESS} {
+    request_body {
+        max_size 13MB
+    }
+    reverse_proxy app:8000
+}

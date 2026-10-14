@@ -1,0 +1,95 @@
+services:
+  app:
+    build: .
+    image: tone-correction-system:latest
+    restart: unless-stopped
+    ports: ["127.0.0.1:8000:8000"]
+    environment: &application_environment
+      DATABASE_URL: postgresql+psycopg://tone_correction:${POSTGRES_PASSWORD:?Run scripts/configure.py}@postgres:5432/tone_correction
+      REDIS_URL: redis://redis:6379/0
+      QUEUE_MODE: celery
+      DATA_DIR: /app/data
+      SETUP_TOKEN: ${SETUP_TOKEN:?Run scripts/configure.py}
+      AUDIO_RETENTION_DAYS: ${AUDIO_RETENTION_DAYS:-30}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    volumes: ["audio_data:/app/data"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    read_only: true
+    tmpfs: ["/tmp:size=256m,mode=1777"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+  worker:
+    build: .
+    image: tone-correction-system:latest
+    restart: unless-stopped
+    environment: *application_environment
+    depends_on:
+      app: {condition: service_healthy}
+    volumes: ["audio_data:/app/data"]
+    command: ["celery", "-A", "backend.jobs.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
+    read_only: true
+    tmpfs: ["/tmp:size=256m,mode=1777"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+  beat:
+    build: .
+    image: tone-correction-system:latest
+    restart: unless-stopped
+    environment: *application_environment
+    depends_on:
+      app: {condition: service_healthy}
+    volumes: ["audio_data:/app/data"]
+    command: ["celery", "-A", "backend.jobs.celery_app", "beat", "--loglevel=INFO", "--schedule=/app/data/celerybeat-schedule"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tone_correction
+      POSTGRES_DB: tone_correction
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/configure.py}
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tone_correction -d tone_correction"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: ["redis_data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  caddy:
+    image: caddy:2
+    profiles: [https]
+    restart: unless-stopped
+    depends_on:
+      app: {condition: service_healthy}
+    ports: ["80:80", "443:443"]
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+volumes:
+  audio_data:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
