@@ -36,6 +36,12 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
       if(process.env.SETUP_TOKEN)await page.fill('#auth-setup',process.env.SETUP_TOKEN);
     }
     await page.click('#auth-submit');await page.waitForSelector('#auth-dialog',{state:'hidden'});
+    assert.equal(await page.locator('main > .agent-flow').count(),0);
+    assert.equal(await page.locator('.practice-panel #analysis-flow #agent-nodes').count(),1);
+    assert.equal(await page.locator('#trace').count(),0);
+    assert.equal(await page.locator('.right-column > .science-panel').count(),1);
+    assert.equal(await page.locator('#science-visuals').evaluate(el=>el.closest('section')===document.querySelector('#messages').closest('section')),true);
+    assert.equal(await page.locator('#analysis-flow').isVisible(),false);
     await page.screenshot({path:path.join(artifacts,'desktop-empty.png'),fullPage:true});
     const initialCount=Number(await page.locator('#history-count').textContent());
     await page.click('#record');await page.waitForSelector('#record.recording');
@@ -57,7 +63,8 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     assert.ok(!(await page.locator('#messages').textContent()).includes('是否更符合目标'));
     assert.equal(await page.locator('#chat-trace li.completed').count(),6);
     assert.equal(await page.locator('#agent-nodes .completed').count(),6);
-    assert.equal(await page.locator('#trace li.completed').count(),8);
+    assert.equal(await page.locator('#analysis-flow').isVisible(),true);
+    assert.equal(await page.evaluate(()=>Boolean(document.querySelector('#analyze').compareDocumentPosition(document.querySelector('#analysis-flow')) & Node.DOCUMENT_POSITION_FOLLOWING)),true);
     assert.equal(await page.locator('#chart .f0-line').count(),1);
     await page.fill('#chat-input','三声的低音区怎么观察？');await page.click('#chat-send');
     await page.waitForFunction(()=>!document.querySelector('#chat-send').disabled);

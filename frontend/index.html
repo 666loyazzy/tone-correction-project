@@ -23,7 +23,6 @@
     <main>
       <header class="topbar"><div><span class="breadcrumb">学习工作台</span><span class="slash">/</span>声调练习</div><div class="topbar-actions"><button class="text-button mobile-account" id="mobile-memory" type="button">学习档案</button><span class="status-pill"><i></i> 录音与分析</span><button class="text-button mobile-account" id="mobile-logout" type="button">退出</button></div></header>
       <div class="page-intro"><div><p class="eyebrow">听见变化 · 看见进步</p><h1>练习你的汉语声调</h1><p>录一段，听一遍。让声音的走势成为下一次练习的线索。</p></div><span class="intro-mark" aria-hidden="true">声</span></div>
-      <section class="agent-flow card" aria-labelledby="agent-flow-title"><div class="section-title"><h2 id="agent-flow-title">科学智能体工作流</h2><span class="tutor-badge">实际执行状态</span></div><p>声学提取完成后，依次校验权限、计算证据、加载回复规范与资料、解读并校验。节点随真实步骤点亮。</p><div class="agent-diagram"><svg id="agent-lines" aria-hidden="true"></svg><div id="agent-nodes" class="agent-nodes"></div></div></section>
       <div class="workspace">
         <section class="practice-panel card" aria-labelledby="practice-title">
           <div class="section-title"><h2 id="practice-title">今天，练习哪一个声调？</h2><span class="step-label">01 / 选择</span></div>
@@ -49,13 +48,18 @@
             <details><summary>分析设置</summary><div class="analysis-settings"><label>F0 下限 <input id="floor" type="number" value="75" min="50" max="999"> Hz</label><label>F0 上限 <input id="ceiling" type="number" value="600" min="51" max="1000"> Hz</label></div></details>
             <button class="primary analyze-button" id="analyze" type="button">分析这次发音 <span>↗</span></button>
           </div>
-          <div id="analysis-flow" class="analysis-flow" hidden><div class="flow-heading"><b>本次分析流程</b><span id="flow-status">等待分析</span></div><ol id="trace"></ol></div>
+          <section id="analysis-flow" class="analysis-flow" aria-labelledby="agent-flow-title" hidden>
+            <div class="flow-heading"><h2 id="agent-flow-title">科学智能体工作流</h2><span id="flow-status" role="status">等待分析</span></div>
+            <p class="flow-note">声学提取与智能解读依次执行，节点随真实步骤点亮。</p>
+            <div class="agent-diagram"><svg id="agent-lines" aria-hidden="true"></svg><div id="agent-nodes" class="agent-nodes"></div></div>
+          </section>
           <p class="privacy-note">点击分析后，录音和练习结果保存到你的账号。录音默认保留 30 天，可在练习记录中删除。</p>
         </section>
         <div class="right-column">
           <section class="analysis-panel card" aria-labelledby="analysis-title"><div class="section-title"><h2 id="analysis-title">你的声调曲线</h2><span class="step-label">03 / 观察</span></div><div class="chart-legend"><span><i></i> 本次练习</span><label><input type="checkbox" id="compare"> 对比上次</label><span class="unit">F0 · Hz</span></div><div id="chart" class="chart"><div class="empty-chart"><svg viewBox="0 0 240 80" aria-hidden="true"><path d="M5 12 C45 22 56 70 110 68 S180 30 235 8"/></svg><b>你的声音，会在这里留下曲线</b><p>完成一次录音并分析，观察音高如何随时间变化。</p></div></div><div id="metrics" class="metrics"><div><small>最低音高</small><strong>— <em>Hz</em></strong></div><div><small>结束音高</small><strong>— <em>Hz</em></strong></div><div><small>分析选区</small><strong>— <em>秒</em></strong></div></div><div id="quality" class="quality" hidden></div><div class="chart-foot"><span>断线表示没有有效基频</span><div class="chart-actions"><button id="delete-practice" class="text-button" type="button" hidden>删除本次</button><button id="export" class="text-button" type="button" disabled>导出数据 ↙</button></div></div></section>
-          <section class="science-panel card" aria-labelledby="science-title">
-            <div class="section-title"><h2 id="science-title">本次发音图解</h2><button id="science-generate" class="text-button" type="button" disabled>重新解读 ↗</button></div>
+          <section class="tutor-panel science-panel card" aria-labelledby="tutor-title">
+            <div class="section-title"><h2 id="tutor-title"><span class="tutor-symbol">✦</span> 声调教学智能体</h2><div class="tutor-actions"><button id="science-generate" class="text-button" type="button" disabled>重新解读 ↗</button><button id="new-chat" type="button" class="text-button">新对话 ＋</button></div></div>
+            <h3 id="science-title" class="sr-only">本次发音图解</h3>
             <p id="science-status" class="science-status" role="status">完成录音分析后展示</p><p id="science-origin" class="science-origin"></p>
             <div id="science-visuals" hidden>
               <div class="science-figures"><figure><figcaption>有效基频比例</figcaption><div id="science-quality-plot"></div></figure><figure><figcaption>前、中、后段音高</figcaption><div id="science-regions-plot"></div></figure></div>
@@ -63,8 +67,7 @@
               <h3>复练变化</h3><div id="science-comparison" class="science-comparison"></div><p id="science-compare-note" class="science-caption"></p>
               <div class="experiment-steps"><div><b>①</b><span>固定录音条件</span></div><i>→</i><div><b>②</b><span>只改变一个因素</span></div><i>→</i><div><b>③</b><span>重复三次并比较</span></div></div><p id="science-experiment" class="science-experiment"></p>
             </div>
-          </section>
-          <section class="tutor-panel card" aria-labelledby="tutor-title"><div class="section-title"><h2 id="tutor-title"><span class="tutor-symbol">✦</span> 声调教学智能体</h2><button id="new-chat" type="button" class="text-button">新对话 ＋</button></div><div class="chat-history-controls"><select id="conversation-select" aria-label="选择历史对话"><option value="">当前新对话</option></select><button id="delete-chat" class="text-button" type="button" hidden>删除对话</button><span id="chat-mode" class="tutor-badge">声调教学助手</span></div><div id="messages" class="messages" role="log" aria-live="polite"><div class="message assistant"><span class="avatar">声</span><div><p>你好，欢迎来到声调纠正系统。</p><p>录音分析后，我会结合曲线说明你的发音特点，并给出具体复练动作。你可以继续追问某段曲线或下一轮怎样练。</p></div></div></div><form id="chat-form" class="composer"><label class="sr-only" for="chat-input">输入声调练习问题</label><input id="chat-input" placeholder="这次哪里要调整？下一轮怎样练？" maxlength="2000" autocomplete="off"><button type="submit" id="chat-send" aria-label="发送消息">↑</button></form><details id="chat-flow" class="chat-flow" hidden><summary>查看智能体执行记录</summary><ol id="chat-trace"></ol></details></section>
+            <div class="chat-history-controls"><select id="conversation-select" aria-label="选择历史对话"><option value="">当前新对话</option></select><button id="delete-chat" class="text-button" type="button" hidden>删除对话</button><span id="chat-mode" class="tutor-badge">声调教学助手</span></div><div id="messages" class="messages" role="log" aria-live="polite"><div class="message assistant"><span class="avatar">声</span><div><p>你好，欢迎来到声调纠正系统。</p><p>录音分析后，我会结合曲线说明你的发音特点，并给出具体复练动作。你可以继续追问某段曲线或下一轮怎样练。</p></div></div></div><form id="chat-form" class="composer"><label class="sr-only" for="chat-input">输入声调练习问题</label><input id="chat-input" placeholder="这次哪里要调整？下一轮怎样练？" maxlength="2000" autocomplete="off"><button type="submit" id="chat-send" aria-label="发送消息">↑</button></form><details id="chat-flow" class="chat-flow" hidden><summary>查看智能体执行记录</summary><ol id="chat-trace"></ol></details></section>
         </div>
       </div>
       <footer>声调纠正系统 <span>从一次自然发音开始。</span></footer>

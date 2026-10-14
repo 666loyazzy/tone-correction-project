@@ -147,7 +147,7 @@ function renderChatTrace(trace=[]) {
 
 function drawAgentLines(){
   const container=$('#agent-nodes'),bounds=container.getBoundingClientRect(),nodes=[...container.children];
-  if(nodes.length!==6)return;
+  if(nodes.length<2 || !bounds.width)return;
   const rectangles=nodes.map(node=>node.getBoundingClientRect());
   const paths=rectangles.slice(0,-1).map((rect,index)=>{
     const next=rectangles[index+1],x1=rect.right-bounds.left,y1=(rect.top+rect.bottom)/2-bounds.top;
@@ -159,9 +159,12 @@ function drawAgentLines(){
   $('#agent-lines').innerHTML='<defs><marker id="agent-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0L6,3L0,6" fill="#6d8b71"/></marker></defs>'+paths.join('');
 }
 
-function renderAgentFlow(trace=[]){
-  const labels=['权限校验','计算声学证据','加载回复规范与资料','模型发音分析','事实与表述校验','保存分析与建议'];
-  if(state.modelConfigured===false || trace[3]?.summary?.includes('模型尚未配置'))labels[3]='计算证据解读';
+function renderAgentFlow(trace=[], phase='chat'){
+  const labels=phase==='audio'?trace.map(stage=>stage.label):['权限校验','计算声学证据','加载回复规范与资料','模型发音分析','事实与表述校验','保存分析与建议'];
+  if(phase==='chat' && (state.modelConfigured===false || trace[3]?.summary?.includes('模型尚未配置')))labels[3]='计算证据解读';
+  if(trace.length)$('#analysis-flow').hidden=false;
+  const active=trace.find(stage=>stage.status==='running');
+  $('#flow-status').textContent=trace.some(stage=>stage.status==='failed')?'执行失败':active?'分析中':trace.length&&trace.every(stage=>stage.status==='completed')?'已完成':'等待分析';
   $('#agent-nodes').replaceChildren();
   labels.forEach((label,index)=>{
     const stage=trace[index],status=['running','completed','failed'].includes(stage?.status)?stage.status:'pending';
@@ -194,12 +197,13 @@ async function streamTeaching(body,onTrace){
 
 function clearEvidenceVisuals(){
   $('#science-visuals').hidden=true;$('#science-origin').textContent='';$('#science-status').textContent='完成录音分析后展示';
+  $('#analysis-flow').hidden=true;
   renderAgentFlow();
 }
 
 function showEvidenceVisuals(data){
   const e=data.evidence;if(!e)return;
-  $('#science-status').textContent=data.mode==='api'?'DeepSeek 结合实测曲线分析 · 建议见下方对话':data.mode==='guarded'?'已采用实测曲线练习建议 · 建议见下方对话':'实测曲线练习建议 · 本地规则';
+  $('#science-status').textContent=data.mode==='api'?'DeepSeek 结合实测曲线分析':data.mode==='guarded'?'已采用实测曲线练习建议':'实测曲线练习建议 · 本地规则';
   $('#science-origin').textContent=`${tones[e.tone-1]} · 练习 ${e.practice_id.slice(0,8)} · Praat ${e.algorithm.praat_version} · ${e.algorithm.pitch_floor_hz}–${e.algorithm.pitch_ceiling_hz} Hz`;
   const percent=e.quality.voiced_percent, radius=38, circumference=2*Math.PI*radius;
   $('#science-quality-plot').innerHTML=`<svg viewBox="0 0 160 125" role="img" aria-label="有效基频帧占比 ${percent}%"><circle cx="80" cy="50" r="${radius}" class="donut-base"/><circle cx="80" cy="50" r="${radius}" class="donut-value" stroke-dasharray="${circumference*percent/100} ${circumference}" transform="rotate(-90 80 50)"/><text x="80" y="55" text-anchor="middle" class="science-value">${percent}%</text><text x="80" y="113" text-anchor="middle" class="science-label">${e.quality.valid_frames}/${e.quality.total_frames} 帧有效 F0</text></svg>`;
@@ -363,15 +367,8 @@ function renderHistory() {
 }
 
 function showTrace(practice) {
-  $('#analysis-flow').hidden=false;
-  $('#flow-status').textContent=({queued:'等待分析',running:'分析中',completed:'已完成',failed:'需要重新录音'})[practice.state] || '';
-  $('#trace').replaceChildren();
-  (practice.trace||[]).forEach(stage=>{
-    const li=document.createElement('li');li.className=stage.status;
-    const icon=document.createElement('i');icon.textContent=stage.status==='completed'?'✓':stage.status==='running'?'…':stage.status==='failed'?'!':'·';
-    const label=document.createElement('span');label.textContent=stage.label;
-    li.append(icon,label);if(stage.summary)li.title=stage.summary;$('#trace').append(li);
-  });
+  renderAgentFlow(practice.trace||[], 'audio');
+  $('#flow-status').textContent=({queued:'等待分析',running:'声学提取中',completed:'声学提取已完成',failed:'需要重新录音'})[practice.state] || '';
 }
 
 async function waitForPractice(id, signal) {
