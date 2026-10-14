@@ -117,7 +117,7 @@ function addMessage(text, role = 'assistant', sources = []) {
   }
   const content = document.createElement('div');
   for (const paragraph of (Array.isArray(text) ? text : String(text).split('\n')).filter(Boolean)) {
-    const heading=paragraph.match(/^#{1,4}\s+(.+)$/);
+    const heading=paragraph.match(/^#{1,4}\s+(.+)$/)||paragraph.match(/^\*\*(.+)\*\*$/);
     const p = document.createElement(heading?'h3':'p'); p.textContent = heading?heading[1]:paragraph; content.append(p);
   }
   if (sources.length) {
@@ -216,7 +216,7 @@ function showScientificReport(data){
   $('#science-body').replaceChildren();
   const sectionNames=['测量方法与录音质量','本次声学证据','目标声调与证据解释','同声调复练对比','下一轮练习实验','方法依据与适用范围'];
   for(const line of data.text.split('\n').filter(Boolean)){
-    const heading=line.match(/^#{1,4}\s+(.+)$/);
+    const heading=line.match(/^#{1,4}\s+(.+)$/)||line.match(/^\*\*(.+)\*\*$/);
     const element=document.createElement(heading||sectionNames.includes(line.trim())?'h3':'p');
     element.textContent=heading?heading[1]:line;$('#science-body').append(element);
   }
