@@ -14,7 +14,8 @@ from urllib.parse import urlparse
 
 import httpx
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+import json
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
@@ -22,10 +23,11 @@ from sqlalchemy import delete, select
 from .auth import current_user, public_user, router as auth_router, teacher
 from .database import (Conversation, LearningMemory, Message, Practice, SessionLocal, User,
                        engine, identifier, initialize)
-from .harness import MANIFEST, initial_trace
+from .harness import MANIFEST, initial_trace, AnalysisHarness, skill_text
 from .jobs import cleanup, practice_directory, queued_analysis, run_analysis
 from .memory import load_memory
-from .tutor import answer
+from .tutor import answer, retrieve, validate_answer
+from .scientific import evidence
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_BYTES = 12 * 1024 * 1024
@@ -281,37 +283,102 @@ class ChatRequest(BaseModel):
     tone: int = Field(default=3,ge=1,le=4)
     conversation_id: str | None = None
     analysis_id: str | None = None
+    report: bool = False
 
 
-@app.post('/api/chat')
-async def chat(body: ChatRequest,user: User=Depends(current_user)):
-    trace=[]
-    def step(label): trace.append({'label':label,'status':'completed','time':time.time()})
+async def run_chat(body: ChatRequest,user: User,on_trace=None):
+    harness=AnalysisHarness(None, MANIFEST['chat_workflow'],on_trace=on_trace)
+    harness.begin('chat.authorize')
     with SessionLocal() as db:
         row=owned_conversation(db,body.conversation_id,user) if body.conversation_id else Conversation(
             user_id=user.id,title=body.message[:40])
         if not body.conversation_id:
             db.add(row); db.commit()
-        result=owned_practice(db,body.analysis_id,user).result if body.analysis_id else None
-        step(MANIFEST['chat_steps'][0])
+        practice=owned_practice(db,body.analysis_id,user) if body.analysis_id else None
+        if practice and (practice.state != 'completed' or not practice.result):
+            raise HTTPException(409,'请等待这次练习完成声学分析。')
+        result=practice.result if practice else None
+        target_tone=practice.tone if practice else body.tone
         past=db.scalars(select(Message).where(Message.conversation_id==row.id)
                         .order_by(Message.created_at.desc()).limit(10)).all()
         context=[{'role':m.role,'content':m.content} for m in reversed(past)]
         conversation_id=row.id
-    memory=load_memory(user.id); step(MANIFEST['chat_steps'][1]);step(MANIFEST['chat_steps'][2])
+        previous=None
+        if practice:
+            prior=db.scalar(select(Practice).where(Practice.user_id==user.id, Practice.tone==practice.tone,
+                Practice.state=='completed', Practice.created_at<practice.created_at)
+                .order_by(Practice.created_at.desc()).limit(1))
+            if prior and prior.result:
+                previous={'id':prior.id, 'created_at':prior.created_at, 'result':prior.result}
+    harness.end('会话及练习由服务器校验权限；声调以保存的练习为准')
+    harness.begin('chat.evidence')
+    memory=load_memory(user.id)
+    measured=evidence(result,previous)
+    if measured:
+        measured['practice_id']=body.analysis_id
+    harness.end('已计算前中后段观测、有效帧比例及同声调复练变化' if measured else '当前没有分析数据，进入录音准备指导')
+    harness.begin('chat.retrieve')
+    entries=retrieve(body.message,target_tone)
+    contract=skill_text('scientific-response')
+    skills=contract+'\n'+'\n'.join(skill_text(name) for name in ('tone-teaching','tone-analysis'))
+    harness.end('强制读取 scientific-response、tone-teaching、tone-analysis；资料：'+', '.join(item['id'] for item in entries))
+    harness.begin('chat.answer')
     try:
-        response=await answer(body.message,body.tone,result,context,memory)
-    except (httpx.HTTPError,ValueError,KeyError,IndexError):
-        raise HTTPException(503,'教学问答暂时不可用；可以继续录音、回听和声调分析。') from None
-    step(MANIFEST['chat_steps'][3]);step(MANIFEST['chat_steps'][4])
+        response=await answer(body.message,target_tone,result,context,memory,measured=measured,entries=entries,skills=skills)
+    except (httpx.HTTPError,ValueError,KeyError,IndexError,TypeError) as exc:
+        reason=(f'模型 API 返回 HTTP {exc.response.status_code}，请检查密钥、额度与模型配置。' if isinstance(exc,httpx.HTTPStatusError)
+                else '模型报告被截断，请增加输出预算。' if isinstance(exc,ValueError) and '被截断' in str(exc)
+                else '模型请求未完成，请检查网络、模型配置或超时时间；已提取的声学结果仍可查看。')
+        harness.fail(reason)
+        raise HTTPException(503,{'message':reason,'trace':harness.trace}) from None
+    harness.end('模型已返回报告' if response['mode']=='api' else '模型尚未配置，已生成完整计算证据报告')
+    harness.begin('chat.validate')
+    response=validate_answer(response,measured,body.report)
+    harness.end('模型未满足回复结构、测量数值或教学边界，已回退计算证据报告' if response['mode']=='guarded' else '已检查回复结构、测量数值与教学边界，资料链接来自服务器')
+    harness.begin('chat.save')
     with SessionLocal() as db:
         row=owned_conversation(db,conversation_id,user)
         row.updated_at=time.time()
         db.add(Message(conversation_id=row.id,role='user',content=body.message))
         db.add(Message(conversation_id=row.id,role='assistant',content=response['text'],sources=response['sources']))
         db.commit()
-    step(MANIFEST['chat_steps'][5])
-    return {**response,'conversation_id':conversation_id,'trace':trace}
+    harness.end('已保存报告正文和引用资料，可在历史对话中继续追问')
+    harness.complete()
+    return {**response,'conversation_id':conversation_id,'trace':harness.trace,'evidence':measured}
+
+
+@app.post('/api/chat')
+async def chat(body: ChatRequest,user: User=Depends(current_user)):
+    return await run_chat(body,user)
+
+
+@app.post('/api/chat/stream')
+async def chat_stream(body: ChatRequest,user: User=Depends(current_user)):
+    queue=asyncio.Queue()
+    async def produce():
+        try:
+            data=await run_chat(body,user,lambda trace:queue.put_nowait({'type':'trace','trace':trace}))
+            queue.put_nowait({'type':'result','data':data})
+        except HTTPException as exc:
+            detail=exc.detail
+            queue.put_nowait({'type':'error','message':detail if isinstance(detail,str) else detail['message'],
+                             'trace':detail.get('trace',[]) if isinstance(detail,dict) else []})
+        except Exception:
+            queue.put_nowait({'type':'error','message':'科学报告未完成，请重试；声学结果仍可查看。'})
+    async def events():
+        task=asyncio.create_task(produce())
+        try:
+            while True:
+                event=await queue.get()
+                yield json.dumps(event,ensure_ascii=False)+'\n'
+                if event['type'] in ('result','error'):
+                    break
+        finally:
+            if not task.done():
+                task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+    return StreamingResponse(events(),media_type='application/x-ndjson',headers={'X-Accel-Buffering':'no'})
 
 
 @app.get('/api/teacher/students')

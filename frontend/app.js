@@ -5,18 +5,20 @@ const tones = ['mā', 'má', 'mǎ', 'mà'];
 const recorder = new BrowserRecorder();
 const state = {tone: 3, blob: null, url: null, duration: 0, waveform: [],
   cropEdited: false, result: null, busy: false, generation: 0, chatBusy: false,
-  user: null, practiceId: null, conversationId: null, reviewOnly: false};
+  user: null, practiceId: null, conversationId: null, reviewOnly: false, modelConfigured: null};
 let history = [];
 let requestController;
 let authMode = 'login';
 let authStatus = {needs_setup:false, setup_token_required:false};
+const sciencePrompt='请基于本次声学证据生成完整的科学练习报告，结合录音质量、分段走势、本人此前同声调练习、学习目标和研究资料，给出可验证的单因素三次复练实验。';
 
 async function api(path, options = {}) {
   const response = await fetch(path, options);
   const data = await response.json();
   if (!response.ok) {
     if (response.status === 401 && !path.startsWith('/api/auth/')) showAuth();
-    throw new Error(typeof data.detail === 'string' ? data.detail : '请求参数不正确，请检查输入。');
+    const error=new Error(typeof data.detail === 'string' ? data.detail : data.detail?.message || '请求参数不正确，请检查输入。');
+    error.trace=data.detail?.trace;throw error;
   }
   return data;
 }
@@ -65,6 +67,7 @@ async function loggedIn(user) {
   $('#user-name').textContent=user.display_name;
   $('#teacher-nav').hidden=user.role!=='teacher';
   const config=await api('/api/agent/config');
+  state.modelConfigured=config.model_configured;renderAgentFlow();
   $('#chat-mode').textContent=config.model_configured?'模型问答':'本地教学规则';
   await loadHistory();await loadConversations();
 }
@@ -82,9 +85,10 @@ function updateButtons() {
   $('#recording-stage').classList.toggle('recording', recorder.state === 'recording');
   $('#recording-label').textContent = ({requesting:'等待麦克风授权', recording:'正在录音', stopping:'整理音频中'})[recorder.state] || (state.blob ? '录音已就绪' : '准备好，就开始');
   $('#upload').disabled = captureBusy || state.busy;
-  $('#analyze').disabled = !state.blob || state.busy || captureBusy;
+  $('#analyze').disabled = !state.blob || state.busy || captureBusy || state.chatBusy;
   $('#analyze').textContent = state.busy ? '正在提取声调…' : '分析这次发音 ↗';
   $('#export').disabled = !state.result;
+  $('#science-generate').disabled = !state.result || state.reviewOnly || state.busy || state.chatBusy;
   $('#delete-practice').hidden = !state.practiceId || state.reviewOnly;
   $('#delete-practice').disabled = state.busy || captureBusy;
   for (const element of document.querySelectorAll('.tone, #start, #end, #floor, #ceiling, .history-item')) {
@@ -113,7 +117,8 @@ function addMessage(text, role = 'assistant', sources = []) {
   }
   const content = document.createElement('div');
   for (const paragraph of (Array.isArray(text) ? text : String(text).split('\n')).filter(Boolean)) {
-    const p = document.createElement('p'); p.textContent = paragraph; content.append(p);
+    const heading=paragraph.match(/^#{1,4}\s+(.+)$/);
+    const p = document.createElement(heading?'h3':'p'); p.textContent = heading?heading[1]:paragraph; content.append(p);
   }
   if (sources.length) {
     const references=document.createElement('div'); references.className='message-sources'; references.textContent='参考资料';
@@ -127,6 +132,117 @@ function addMessage(text, role = 'assistant', sources = []) {
   message.append(content); $('#messages').append(message);
   while ($('#messages').children.length > 60) $('#messages').firstElementChild.remove();
   $('#messages').scrollTop = $('#messages').scrollHeight;
+}
+
+function renderChatTrace(trace=[]) {
+  $('#chat-flow').hidden=false;$('#chat-trace').replaceChildren();
+  for(const stage of trace){
+    const li=document.createElement('li');li.className=stage.status;
+    const title=document.createElement('strong');title.textContent=stage.label;
+    const detail=document.createElement('span');
+    const duration=stage.finished_at&&stage.started_at?` · ${(stage.finished_at-stage.started_at).toFixed(2)} 秒`:'';
+    detail.textContent=(stage.summary||'尚未执行')+duration;li.append(title,detail);$('#chat-trace').append(li);
+  }
+}
+
+function drawAgentLines(){
+  const container=$('#agent-nodes'),bounds=container.getBoundingClientRect(),nodes=[...container.children];
+  if(nodes.length!==6)return;
+  const rectangles=nodes.map(node=>node.getBoundingClientRect());
+  const paths=rectangles.slice(0,-1).map((rect,index)=>{
+    const next=rectangles[index+1],x1=rect.right-bounds.left,y1=(rect.top+rect.bottom)/2-bounds.top;
+    const x2=next.left-bounds.left,y2=(next.top+next.bottom)/2-bounds.top;
+    const points=Math.abs(y1-y2)<5?`M${x1},${y1}L${x2},${y2}`:`M${x1},${y1}H${x1+6}V${(rect.bottom+next.top)/2-bounds.top}H${x2-6}V${y2}H${x2}`;
+    return `<path d="${points}" class="${nodes[index].classList.contains('completed')?'lit':''}" marker-end="url(#agent-arrow)"/>`;
+  });
+  $('#agent-lines').setAttribute('viewBox',`0 0 ${bounds.width} ${bounds.height}`);
+  $('#agent-lines').innerHTML='<defs><marker id="agent-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0L6,3L0,6" fill="#6d8b71"/></marker></defs>'+paths.join('');
+}
+
+function renderAgentFlow(trace=[]){
+  const labels=['权限校验','计算声学证据','加载回复规范与资料','模型科学解读','报告校验','保存报告'];
+  if(state.modelConfigured===false || trace[3]?.summary?.includes('模型尚未配置'))labels[3]='计算证据解读';
+  $('#agent-nodes').replaceChildren();
+  labels.forEach((label,index)=>{
+    const stage=trace[index],status=['running','completed','failed'].includes(stage?.status)?stage.status:'pending';
+    const node=document.createElement('div');node.className='agent-node '+status;node.title=stage?.summary||'等待前序步骤完成';
+    const icon=document.createElement('b');icon.textContent=status==='completed'?'✓':status==='failed'?'!':String(index+1);
+    const title=document.createElement('strong');title.textContent=label;
+    const stateLabel=document.createElement('span');stateLabel.textContent=status==='completed'?`已完成 · ${(stage.finished_at-stage.started_at).toFixed(2)}秒`:status==='running'?'正在执行':status==='failed'?'执行失败':'待执行';
+    node.append(icon,title,stateLabel);$('#agent-nodes').append(node);
+  });
+  requestAnimationFrame(drawAgentLines);
+}
+
+async function streamTeaching(body,onTrace){
+  const response=await fetch('/api/chat/stream',jsonOptions('POST',body));
+  if(!response.ok){if(response.status===401)showAuth();const data=await response.json();throw new Error(typeof data.detail==='string'?data.detail:'请求未完成，请重新登录或重试。');}
+  const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='',result;
+  function consume(line){
+    if(!line.trim())return;const event=JSON.parse(line);
+    if(event.type==='trace')onTrace(event.trace);
+    else if(event.type==='result')result=event.data;
+    else if(event.type==='error'){const error=new Error(event.message);error.trace=event.trace;throw error;}
+  }
+  try{
+    while(true){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split('\n');buffer=lines.pop();lines.forEach(consume);}
+    buffer+=decoder.decode();consume(buffer);
+    if(!result)throw new Error('报告连接中断，请重试。');return result;
+  }catch(error){await reader.cancel().catch(()=>{});throw error;}
+  finally{reader.releaseLock();}
+}
+
+function clearScientificReport(){
+  $('#science-visuals').hidden=true;$('#science-body').replaceChildren();$('#science-origin').textContent='';$('#science-sources').replaceChildren();$('#science-status').textContent='完成录音分析后生成';
+  renderAgentFlow();
+}
+
+function showScientificReport(data){
+  const e=data.evidence;if(!e)return;
+  $('#science-status').textContent=data.mode==='api'?'模型结合实测证据解读':data.mode==='guarded'?'输出校验后的计算报告':'计算证据报告 · 模型未启用';
+  $('#science-origin').textContent=`${tones[e.tone-1]} · 练习 ${e.practice_id.slice(0,8)} · Praat ${e.algorithm.praat_version} · ${e.algorithm.pitch_floor_hz}–${e.algorithm.pitch_ceiling_hz} Hz`;
+  const percent=e.quality.voiced_percent, radius=38, circumference=2*Math.PI*radius;
+  $('#science-quality-plot').innerHTML=`<svg viewBox="0 0 160 125" role="img" aria-label="有效基频帧占比 ${percent}%"><circle cx="80" cy="50" r="${radius}" class="donut-base"/><circle cx="80" cy="50" r="${radius}" class="donut-value" stroke-dasharray="${circumference*percent/100} ${circumference}" transform="rotate(-90 80 50)"/><text x="80" y="55" text-anchor="middle" class="science-value">${percent}%</text><text x="80" y="113" text-anchor="middle" class="science-label">${e.quality.valid_frames}/${e.quality.total_frames} 帧有效 F0</text></svg>`;
+  const maximum=Math.max(1,...e.regions.map(r=>r.median_f0_hz||0))*1.15;
+  $('#science-regions-plot').innerHTML=`<svg viewBox="0 0 330 160" role="img" aria-label="发音选区前、中、后段中位基频"><line x1="20" y1="125" x2="320" y2="125" class="science-axis"/>${e.regions.map((r,i)=>{const height=(r.median_f0_hz||0)/maximum*92,x=35+i*100;return `<rect x="${x}" y="${125-height}" width="60" height="${height}" rx="5" class="science-bar"/><text x="${x+30}" y="${Math.max(16,117-height)}" text-anchor="middle" class="science-label">${r.median_f0_hz===null?'不足':r.median_f0_hz.toFixed(1)+' Hz'}</text><text x="${x+30}" y="145" text-anchor="middle" class="science-label">${r.label}</text>`;}).join('')}</svg>`;
+  $('#science-comparison').replaceChildren();
+  const comparison=e.comparison;
+  if(comparison&&Object.keys(comparison.changes).length){
+    const fields=[['选区时长',comparison.changes.selected_duration_s,'秒'],['首尾音高差',comparison.changes.end_minus_start_semitones,'半音'],['最低点位置',comparison.changes.minimum_position*100,'百分点']];
+    for(const [label,value,unit] of fields){const card=document.createElement('div'),caption=document.createElement('small'),number=document.createElement('strong');caption.textContent=label;number.textContent=`${value>=0?'+':''}${value.toFixed(2)} ${unit}`;card.append(caption,number);$('#science-comparison').append(card);}
+    $('#science-compare-note').textContent=`相对本人此前练习 ${comparison.practice_id.slice(0,8)} 的变化量，结合回听判断。`;
+  }else{$('#science-compare-note').textContent=comparison?'对照参数不同或有效 F0 不足，先统一条件再比较。':'本次建立个人基线，下一次同声调练习可进行对照。';}
+  $('#science-experiment').textContent=e.experiment;
+  $('#science-body').replaceChildren();
+  const sectionNames=['测量方法与录音质量','本次声学证据','目标声调与证据解释','同声调复练对比','下一轮练习实验','方法依据与适用范围'];
+  for(const line of data.text.split('\n').filter(Boolean)){
+    const heading=line.match(/^#{1,4}\s+(.+)$/);
+    const element=document.createElement(heading||sectionNames.includes(line.trim())?'h3':'p');
+    element.textContent=heading?heading[1]:line;$('#science-body').append(element);
+  }
+  $('#science-sources').replaceChildren();
+  for(const source of data.sources){const link=document.createElement(source.url?'a':'span');link.textContent=source.title;if(source.url){link.href=source.url;link.target='_blank';link.rel='noopener noreferrer';}$('#science-sources').append(link);}
+  $('#science-visuals').hidden=false;
+}
+
+async function sendTeaching(message,report=false){
+  if(state.chatBusy)return;
+  const analysisId=state.reviewOnly?null:state.practiceId;
+  state.chatBusy=true;$('#chat-send').disabled=true;updateButtons();
+  if(report){$('#science-status').textContent='正在结合实测证据生成报告…';$('#science-body').textContent='声学图表已完成，正在读取对照练习与资料并生成解释。';}
+  try{
+    const data=await streamTeaching({message,tone:state.tone,conversation_id:state.conversationId,analysis_id:analysisId,report},trace=>{
+      renderChatTrace(trace);if(state.practiceId===analysisId)renderAgentFlow(trace);
+    });
+    state.conversationId=data.conversation_id;
+    if(report&&state.practiceId===analysisId){showScientificReport(data);addMessage('科学报告已更新：请查看上方的图表、证据解释和复练实验。','assistant',data.sources);}
+    else if(report){addMessage(`练习 ${analysisId.slice(0,8)} 的科学报告已保存在历史对话中。`);}
+    else addMessage(data.text,'assistant',data.sources);
+    renderChatTrace(data.trace);
+    $('#chat-mode').textContent=data.mode==='api'?'模型科学解读':data.mode==='guarded'?'已校验的科学报告':'计算证据 · 本地规则';
+    await loadConversations();
+  }catch(error){addMessage(error.message);if(error.trace){renderChatTrace(error.trace);renderAgentFlow(error.trace);}if(report)$('#science-status').textContent='报告未完成，可点击重新生成';}
+  finally{state.chatBusy=false;$('#chat-send').disabled=false;updateButtons();}
 }
 
 function renderWaveform() {
@@ -153,6 +269,7 @@ async function setAudio(blob, filename, elapsed = 0) {
   state.duration = elapsed;
   state.waveform = [];
   state.result = null;
+  clearScientificReport();
   state.practiceId = null;
   state.reviewOnly = false;
   $('#analysis-flow').hidden = true;
@@ -339,7 +456,7 @@ window.addEventListener('pageshow', event => {
   if (event.persisted) location.reload();
 });
 document.querySelectorAll('.tone').forEach(button => button.addEventListener('click', () => {
-  chooseTone(Number(button.dataset.tone)); state.result=null; renderChart(); $('#quality').hidden=true; updateButtons();
+  chooseTone(Number(button.dataset.tone)); state.result=null; renderChart(); clearScientificReport();$('#quality').hidden=true; updateButtons();
 }));
 $('#upload').addEventListener('click', () => $('#file').click());
 $('#file').addEventListener('change', () => {
@@ -365,17 +482,19 @@ $('#analyze').addEventListener('click', async () => {
   state.busy=true;updateButtons();notify('正在读取录音并提取声调，请稍候。');
   requestController=new AbortController();
   const timeout=setTimeout(()=>requestController?.abort(),180000);
+  let completed=false;
   try {
     const queued=await api('/api/analyses',{method:'POST',body:form,signal:requestController.signal});
     const practice=await waitForPractice(queued.id,requestController.signal);
     const data=practice.result;
     state.result=data;state.practiceId=practice.id;state.reviewOnly=false;state.duration=data.duration_s;state.waveform=data.waveform;state.cropEdited=false;
     $('#start').value=data.selection.start_s.toFixed(2);$('#end').value=data.selection.end_s.toFixed(2);
-    await loadHistory();renderChart();renderWaveform();showQuality(data);addMessage(data.feedback);
+    await loadHistory();renderChart();renderWaveform();showQuality(data);completed=true;
     notify('分析已完成。可以调整选区重新分析，或再录一次对比走势。');
   } catch(error) {
     notify(error.name==='AbortError'?'分析等待超时，录音仍保留，可再次提交。':(error.message||'分析未完成，请重试。'),true);
   } finally {clearTimeout(timeout);requestController=null;state.busy=false;updateButtons();}
+  if(completed)await sendTeaching(sciencePrompt,true);
 });
 $('#export').addEventListener('click', () => {
   if (!state.result) return;
@@ -387,17 +506,11 @@ $('#export').addEventListener('click', () => {
 $('#chat-form').addEventListener('submit',async event=>{
   event.preventDefault();const message=$('#chat-input').value.trim();
   if (!message || state.chatBusy) return;
-  addMessage(message,'user');$('#chat-input').value='';state.chatBusy=true;$('#chat-send').disabled=true;
-  try {
-    $('#chat-flow').hidden=false;$('#chat-flow').textContent='声调纠正系统正在结合学习档案与当前练习整理建议…';
-    const data=await api('/api/chat',jsonOptions('POST',{message,tone:state.tone,conversation_id:state.conversationId,analysis_id:state.reviewOnly?null:state.practiceId}));
-    state.conversationId=data.conversation_id;addMessage(data.text,'assistant',data.sources);
-    $('#chat-flow').textContent=data.trace.map(step=>step.label).join(' → ');
-    $('#chat-mode').textContent=data.mode==='api'?'模型问答':data.mode==='guarded'?'已校验的教学反馈':'本地教学规则';
-    await loadConversations();
-  } catch(error) {addMessage(error.message||'网络暂时不可用。你可以继续录音和分析。');}
-  finally {state.chatBusy=false;$('#chat-send').disabled=false;}
+  addMessage(message,'user');$('#chat-input').value='';await sendTeaching(message);
 });
+$('#science-generate').addEventListener('click',()=>sendTeaching(sciencePrompt,true));
+window.addEventListener('resize',drawAgentLines);
+renderAgentFlow();
 
 $('#delete-practice').addEventListener('click',async()=>{
   if(!state.practiceId || state.reviewOnly)return;

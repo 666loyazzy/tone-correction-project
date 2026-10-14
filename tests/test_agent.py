@@ -75,12 +75,80 @@ class AgentTests(unittest.TestCase):
                 self.assertEqual(result.status_code,200,result.text)
                 payload=remote.post.call_args.kwargs['json']
                 self.assertIn('name: tone-teaching',payload['messages'][0]['content'])
+                self.assertIn('name: scientific-response',payload['messages'][0]['content'])
                 self.assertIn('learning_memory',payload['messages'][1]['content'])
 
     def test_harness_refuses_skipping_required_steps(self):
         harness=AnalysisHarness('not-a-practice')
         with self.assertRaises(RuntimeError):harness.begin('praat.extract')
         with self.assertRaises(RuntimeError):harness.complete()
+
+    def test_scientific_report_uses_owned_measurements_and_comparison(self):
+        client=self.learner('science_user')
+        first=self.practice(client)
+        other=self.learner('science_other')
+        self.practice(other)
+        second=self.practice(client)
+        response=client.post('/api/chat',json={'message':'生成科学报告','tone':2,'analysis_id':second['id']})
+        self.assertEqual(response.status_code,200,response.text)
+        data=response.json(); measured=data['evidence']
+        self.assertEqual(measured['tone'],3)
+        self.assertEqual(measured['comparison']['practice_id'],first['id'])
+        self.assertEqual(measured['features'],second['result']['features'])
+        self.assertEqual(len(measured['regions']),3)
+        self.assertEqual(sum(r['total_frames'] for r in measured['regions']),second['result']['quality']['total_frames'])
+        self.assertIn('下一轮练习实验',data['text'])
+        self.assertIn('半音',data['text'])
+        self.assertTrue(all(stage['finished_at']>=stage['started_at'] for stage in data['trace']))
+        self.assertTrue(all(stage['skill_version'] and stage['summary'] for stage in data['trace']))
+        self.assertEqual(other.post('/api/chat',json={'message':'生成报告','analysis_id':second['id']}).status_code,404)
+
+    def test_scientific_evidence_preserves_missing_frames_and_parameter_limits(self):
+        from backend.scientific import evidence, local_report
+        from copy import deepcopy
+        client=self.learner('science_quality')
+        row=self.practice(client); result=deepcopy(row['result'])
+        result['f0_hz']=[None]*len(result['f0_hz']);result['features']=None
+        result['quality']['valid_frames']=0
+        measured=evidence(result)
+        self.assertTrue(all(r['median_f0_hz'] is None for r in measured['regions']))
+        self.assertEqual(measured['quality']['voiced_percent'],0)
+        self.assertNotIn('pitch_range_semitones',measured)
+        self.assertIn('有效基频不足',local_report(measured))
+        from backend.tutor import measured_numbers_only
+        live=evidence(row['result'])
+        self.assertTrue(measured_numbers_only(f"最低 {row['result']['features']['min_f0_hz']:.1f} Hz",live))
+        self.assertFalse(measured_numbers_only('把最低点保持在40–50%，再增加1–2半音',live))
+        from backend.tutor import validate_answer
+        wrong={'mode':'api','text':f"最低点位于选区{live['features']['minimum_position']*100:.1f}%",'sources':[]}
+        self.assertEqual(validate_answer(wrong,live)['mode'],'guarded')
+        prior=deepcopy(row);prior['result']['algorithm']['pitch_floor_hz']=90
+        compared=evidence(row['result'],prior)
+        self.assertFalse(compared['comparison']['matching_parameters'])
+        self.assertEqual(compared['comparison']['changes'],{})
+
+    def test_model_scientific_context_and_failed_step(self):
+        import httpx
+        import json
+        client=self.learner('science_model'); row=self.practice(client)
+        with patch.dict('os.environ',{'LLM_API_KEY':'test-only','LLM_MODEL':'deepseek-flash','LLM_BASE_URL':'https://api.deepseek.com'}):
+            with patch('backend.tutor.httpx.AsyncClient') as constructor:
+                remote=constructor.return_value.__aenter__.return_value
+                response=httpx.Response(200,json={'choices':[{'message':{'content':'诊断为环甲肌无力，评分为99'}}]},request=httpx.Request('POST','https://api.deepseek.com/chat/completions'))
+                remote.post=AsyncMock(return_value=response)
+                data=client.post('/api/chat',json={'message':'科学报告','analysis_id':row['id']}).json()
+                self.assertEqual(data['mode'],'guarded');self.assertNotIn('评分为99',data['text'])
+                payload=remote.post.call_args.kwargs['json']
+                context=json.loads(payload['messages'][1]['content'].split('：',1)[1])
+                self.assertEqual(context['scientific_evidence']['features'],row['result']['features'])
+                self.assertEqual(payload['thinking'],{'type':'enabled'})
+                self.assertGreater(payload['max_tokens'],800)
+                remote.post=AsyncMock(return_value=httpx.Response(401,request=httpx.Request('POST','https://api.deepseek.com/chat/completions')))
+                failed=client.post('/api/chat',json={'message':'科学报告','analysis_id':row['id']})
+                self.assertEqual(failed.status_code,503)
+                trace=failed.json()['detail']['trace']
+                self.assertEqual(trace[3]['status'],'failed');self.assertEqual(trace[4]['status'],'pending')
+                self.assertNotIn('test-only',failed.text)
 
     def test_cookie_csrf_and_logout(self):
         client=self.learner('session_user')
@@ -89,3 +157,21 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(response.status_code,403)
         client.post('/api/auth/logout')
         self.assertEqual(client.get('/api/memory').status_code,401)
+
+    def test_stream_reports_actual_progress_and_mandatory_skill(self):
+        import json
+        from backend.harness import MANIFEST, skill_text
+        import hashlib
+        client=self.learner('stream_user'); row=self.practice(client)
+        response=client.post('/api/chat/stream',json={'message':'生成科学报告','analysis_id':row['id'],'report':True})
+        self.assertEqual(response.status_code,200)
+        events=[json.loads(line) for line in response.text.splitlines()]
+        self.assertEqual(events[-1]['type'],'result')
+        self.assertTrue(any(e['type']=='trace' and e['trace'][3]['status']=='running' and e['trace'][4]['status']=='pending' for e in events))
+        data=events[-1]['data']
+        expected=hashlib.sha256(skill_text('scientific-response').encode()).hexdigest()[:12]
+        self.assertEqual(data['trace'][2]['skill_version'],expected)
+        self.assertIn('scientific-response',data['trace'][2]['summary'])
+        self.assertTrue(all(e['status']=='completed' for e in data['trace']))
+        harness=AnalysisHarness(None,MANIFEST['chat_workflow'])
+        with self.assertRaises(RuntimeError):harness.begin('chat.answer')

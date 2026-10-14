@@ -48,6 +48,12 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     await page.locator('#audio').evaluate(audio=>audio.pause());
     await page.click('#analyze');await page.waitForFunction(()=>document.querySelector('#flow-status').textContent==='已完成',null,{timeout:30000});
     await page.waitForFunction(()=>!document.querySelector('#analyze').disabled);
+    await page.waitForSelector('#science-visuals:not([hidden])');
+    assert.equal(await page.locator('#science-quality-plot svg').count(),1);
+    assert.equal(await page.locator('#science-regions-plot .science-bar').count(),3);
+    assert.ok((await page.locator('#science-body').textContent()).includes('下一轮练习实验'));
+    assert.equal(await page.locator('#chat-trace li.completed').count(),6);
+    assert.equal(await page.locator('#agent-nodes .completed').count(),6);
     assert.equal(await page.locator('#trace li.completed').count(),8);
     assert.equal(await page.locator('#chart .f0-line').count(),1);
     await page.fill('#chat-input','三声的低音区怎么观察？');await page.click('#chat-send');
@@ -61,6 +67,7 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     await page.waitForFunction(()=>document.querySelector('#preview').hidden===false&&!document.querySelector('#analyze').disabled);
     await page.click('#analyze');await page.waitForFunction(()=>document.querySelector('#flow-status').textContent==='已完成',null,{timeout:30000});
     await page.waitForFunction(()=>!document.querySelector('#analyze').disabled);await page.check('#compare');
+    assert.equal(await page.locator('#science-comparison > div').count(),3);
     assert.equal(await page.locator('#chart .previous-line').count(),1);
     await page.evaluate(()=>window.scrollTo(0,0));
     await page.screenshot({path:path.join(artifacts,'desktop-analysis.png'),fullPage:true});
@@ -71,6 +78,7 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     await page.locator('.history-item').first().click();await page.waitForFunction(()=>!document.querySelector('#export').disabled);
     assert.equal(await page.locator('#chart .f0-line').count(),1);
     await page.setViewportSize({width:390,height:844});
+    await page.click('#science-generate');await page.waitForFunction(()=>!document.querySelector('#science-generate').disabled);
     await page.screenshot({path:path.join(artifacts,'mobile-analysis.png'),fullPage:true});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
     await page.evaluate(()=>navigator.mediaDevices.getUserMedia=()=>Promise.reject(new DOMException('denied','NotAllowedError')));

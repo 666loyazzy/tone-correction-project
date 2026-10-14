@@ -35,7 +35,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows.ps1 Install
 
 本机入口固定使用 SQLite 和进程内分析：数据库是 `E:\tone-correction-project\data\tone_correction.sqlite3`，每次练习的原始录音和解码 WAV 位于 `data\practices\<练习ID>\source.audio` 与 `audio.wav`。日志在 `logs`，私有备份在 `backups`。Docker 模式的命名卷由 Docker Desktop 管理，不由本机入口使用。
 
-安装自动生成 `.env` 随机秘密，启动显式使用 Uvicorn `--env-file` 加载。首次教师注册需填写 `.env` 的 `SETUP_TOKEN`；没有默认账号密码。DeepSeek 默认配置为 `LLM_BASE_URL=https://api.deepseek.com`、`LLM_MODEL=deepseek-flash`，对应 [DeepSeek 官方接口文档](https://api-docs.deepseek.com/)。`LLM_API_KEY` 留空时明确使用本地教学规则。获取真实密钥后仅在本机 `.env` 填写并重启，才可进行实际 API 联调；录音不发送给文本模型。
+安装自动生成 `.env` 随机秘密，启动显式使用 Uvicorn `--env-file` 加载。首次教师注册需填写 `.env` 的 `SETUP_TOKEN`；没有默认账号密码。DeepSeek 默认配置为 `LLM_BASE_URL=https://api.deepseek.com`、`LLM_MODEL=deepseek-v4-pro`，对应 [DeepSeek 官方接口文档](https://api-docs.deepseek.com/)。`LLM_API_KEY` 留空时明确使用本地教学规则。获取真实密钥后仅在本机 `.env` 填写并重启，才可进行实际 API 联调；录音不发送给文本模型。
 
 Windows 入口仅监听 `127.0.0.1:8000`。手机与学校域名的 HTTPS 部署另按下节配置。
 
@@ -83,6 +83,12 @@ docker build --secret id=proxy_ca,src=/etc/ssl/certs/ca-certificates.crt -t tone
 
 ## Skills、Harness 与 Memory
 
+每次录音完成声学分析后，自动生成图文科学报告：原始 F0 曲线、有效帧比例、前中后段音高中位数、同声调复练变化和三步单因素复练图示。报告解释测量方法、证据、目标声调、对照变化、练习实验和依据范围。字体与图表标签采用较深颜色，并提供手机网页布局。
+
+`scientific-response` 是每次教学回复的强制 skill。服务器 chat harness 按权限校验 → 计算证据 → 加载回复规范及资料 → 模型/计算报告 → 输出校验 → 保存执行；读取 skill 文本和版本哈希，禁止跳步。完整报告若结构或教学边界不合规，明确使用计算证据报告回退。`POST /api/chat/stream` 按实际步骤发送状态，页面流程图逐步点亮，显示完成时间或失败位置；不以动画伪造运行进度。
+
+使用 DeepSeek V4 Pro 时设 `LLM_MODEL=deepseek-v4-pro`。可通过 `LLM_REASONING_EFFORT=high`、`LLM_MAX_TOKENS=8192`、`LLM_TIMEOUT_SECONDS=120` 调整解读预算。DeepSeek 请求启用思考模式，但页面展示可核对的测量和结论，不展示模型内部推理文本。来源：[DeepSeek 接口文档](https://api-docs.deepseek.com/api/create-chat-completion/)。
+
 `skills/manifest.json` 注册六类技能；各目录的 `SKILL.md` 定义输入、职责和限制：
 
 | Skill | 职责 |
@@ -93,6 +99,7 @@ docker build --secret id=proxy_ca,src=/etc/ssl/certs/ca-certificates.crt -t tone
 | tone-teaching | 根据资料提供具体教学建议 |
 | chart-data | 校验波形/F0 数据与轴单位 |
 | learning-memory | 按账号记录和召回学习事实 |
+| scientific-response | 强制规范科学回复结构、图表解释、依据引用和复练实验 |
 
 分析 harness 在代码中强制以下顺序，不能由模型跳过或重新排序：
 

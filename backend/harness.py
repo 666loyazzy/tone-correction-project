@@ -14,26 +14,32 @@ STEPS = MANIFEST['analysis_steps']
 
 
 def skill_text(name: str) -> str:
-    allowed = {entry['skill'] for entry in STEPS}
+    allowed = {entry['skill'] for entry in STEPS} | set(MANIFEST.get('required_chat_skills', []))
     if name not in allowed:
         raise ValueError('Unknown skill')
     return (SKILLS_DIR / name / 'SKILL.md').read_text(encoding='utf-8')
 
 
-def initial_trace():
+def initial_trace(steps=None):
     return [{**entry, 'status':'pending', 'skill_version':
-             hashlib.sha256(skill_text(entry['skill']).encode()).hexdigest()[:12]} for entry in STEPS]
+             hashlib.sha256(skill_text(entry['skill']).encode()).hexdigest()[:12]} for entry in (STEPS if steps is None else steps)]
 
 
 class AnalysisHarness:
     """Code-enforced ordered stages. The language model cannot reorder these."""
-    def __init__(self, practice_id: str):
+    def __init__(self, practice_id: str | None, steps=None, on_trace=None):
         self.practice_id = practice_id
-        self.trace = initial_trace()
+        self.steps = STEPS if steps is None else steps
+        self.trace = initial_trace(self.steps)
         self.position = 0
         self.active = None
+        self.on_trace = on_trace
 
     def _save(self):
+        if self.on_trace:
+            self.on_trace([dict(entry) for entry in self.trace])
+        if self.practice_id is None:
+            return
         with SessionLocal() as db:
             practice = db.get(Practice, self.practice_id)
             if practice:
@@ -42,7 +48,7 @@ class AnalysisHarness:
                 db.commit()
 
     def begin(self, stage: str):
-        if self.active is not None or self.position >= len(STEPS) or STEPS[self.position]['id'] != stage:
+        if self.active is not None or self.position >= len(self.steps) or self.steps[self.position]['id'] != stage:
             raise RuntimeError('Harness stage order violation')
         self.active = self.position
         self.trace[self.position].update(status='running', started_at=time.time())
@@ -64,7 +70,7 @@ class AnalysisHarness:
         self._save()
 
     def complete(self):
-        if self.position != len(STEPS) or self.active is not None:
+        if self.position != len(self.steps) or self.active is not None:
             raise RuntimeError('Incomplete harness')
 
 
