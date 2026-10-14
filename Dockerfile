@@ -8,6 +8,7 @@ RUN if [ -n "$APT_MIRROR" ]; then sed -i "s@http://deb.debian.org@https://$APT_M
     && apt-get -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends ffmpeg ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
+ARG PIP_INDEX_URL=https://pypi.org/simple
 RUN --mount=type=secret,id=proxy_ca \
     PIP_CERT=$(if [ -f /run/secrets/proxy_ca ]; then echo /run/secrets/proxy_ca; else echo /etc/ssl/certs/ca-certificates.crt; fi) \
     pip install --no-cache-dir -r requirements.txt
