@@ -14,3 +14,6 @@ logs/
 *.mp3
 *.ogg
 *.mp4
+
+# Publicly licensed teaching examples; private recordings remain excluded.
+!backend/reference_audio/openlearn-ma-*.wav

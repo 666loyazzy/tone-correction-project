@@ -33,6 +33,17 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(response.status_code,202,response.text)
         return client.get('/api/practices/'+response.json()['id']).json()
 
+    def test_bundled_professional_audio_on_fresh_deployment(self):
+        for tone in range(1,5):
+            ref_id=f'openlearn-ma-{tone}'
+            references=self.teacher.get(f'/api/references?tone={tone}').json()['references']
+            self.assertTrue(any(row['id']==ref_id and row['license']=='CC BY-NC-SA 4.0' for row in references))
+            audio=self.teacher.get(f'/api/references/{ref_id}/audio')
+            self.assertEqual(audio.status_code,200)
+            self.assertTrue(audio.content.startswith(b'RIFF'))
+        self.assertEqual(TestClient(app).get('/api/references/openlearn-ma-1/audio').status_code,401)
+        self.assertEqual(self.teacher.get('/api/references/unknown/audio').status_code,404)
+
     def test_ownership_and_teacher_authorization(self):
         a=self.learner('owner_a');b=self.learner('owner_b');row=self.practice(a)
         self.assertEqual(row['state'],'completed')

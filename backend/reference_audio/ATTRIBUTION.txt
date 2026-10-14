@@ -1,0 +1,5 @@
+The Open University, Getting started with Chinese 1 (2020).
+https://www.open.edu/openlearn/mod/oucontent/view.php?id=106435&section=2
+CC BY-NC-SA 4.0
+https://creativecommons.org/licenses/by-nc-sa/4.0/
+Changes: mono WAV decoding and extraction of four individual syllables.

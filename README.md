@@ -134,7 +134,7 @@ flowchart LR
 
 轮廓分是可复算的参照匹配指标：75% 归一化轮廓贴合 +25% 分段升降方向，方法版本 `contour-1.0`。音域按本次第 10–90 百分位半音值归一化，最小跨度 2 半音；该跨度和权重为系统规则。分数用于孤立声调复练，采用相同参照及参数比较变化，考试等级和真实学习效果需要标注语料验证。连续语流、轻声与三声变调另行处理。
 
-专业示范来自 [英国开放大学 OpenLearn 的四声课程](https://www.open.edu/openlearn/mod/oucontent/view.php?id=106435&section=2)，按原声顺序截取 mā、má、mǎ、mà，并用 Praat 提取实际曲线。参考音及其曲线保留 The Open University (2020) 署名，许可为 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)，[课程许可说明](https://www.open.edu/openlearn/mod/oucontent/view.php?id=106436&section=__acknowledgements)。它们的许可独立于本仓库代码的 GPL-3.0-or-later。公开源码保留来源与曲线元数据，音频运行数据放在 `data/references`。部署时从课程的下载链接取得 `l197-pronunciation-10a.mp3`，执行 `python scripts/import_reference_audio.py --source "下载文件的完整路径"` 导入。
+专业示范来自 [英国开放大学 OpenLearn 的四声课程](https://www.open.edu/openlearn/mod/oucontent/view.php?id=106435&section=2)，按原声顺序截取 mā、má、mǎ、mà，并用 Praat 提取实际曲线。参考音及其曲线保留 The Open University (2020) 署名，许可为 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)，[课程许可说明](https://www.open.edu/openlearn/mod/oucontent/view.php?id=106436&section=__acknowledgements)。它们的许可独立于本仓库代码的 GPL-3.0-or-later。公开源码在 `backend/reference_audio` 中包含四个公开许可的单音节示范及署名文件，服务可直接播放；私人录音仍只存放在 `data`，不进入仓库。若要重新提取示范，从课程的下载链接取得 `l197-pronunciation-10a.mp3`，执行 `python scripts/import_reference_audio.py --source "下载文件的完整路径"` 导入。
 
 纠正示范对本人的已保存单音节录音做 Praat PSOLA 声调重合成，按参照调整 F0 并保留音色和时长；产物与原录音一同保留或删除。[Parselmouth 方法说明](https://parselmouth.readthedocs.io/en/stable/examples/pitch_manipulation.html)。RMS 图以 dBFS 表示数字录音音量。
 

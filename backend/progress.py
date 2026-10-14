@@ -18,11 +18,16 @@ from .scoring import ensure_score, normalized_curve, template
 router=APIRouter(prefix='/api')
 
 
+def professional_audio_path(ref_id):
+    runtime=DATA_DIR/'references'/ref_id/'audio.wav'
+    return runtime if runtime.exists() else Path(__file__).parent/'reference_audio'/f'{ref_id}.wav'
+
+
 def professional_references(tone):
     path=Path(__file__).with_name('reference_catalog.json')
     catalog=json.loads(path.read_text(encoding='utf-8')) if path.exists() else []
     return [reference for reference in catalog if reference['tone']==tone and
-            (DATA_DIR/'references'/reference['id']/'audio.wav').exists()]
+            professional_audio_path(reference['id']).exists()]
 
 
 def reference_owner(user):
@@ -85,7 +90,7 @@ async def upload_reference(file: Annotated[UploadFile,File()],tone: Annotated[in
 def reference_audio(ref_id: str,user: User=Depends(current_user)):
     for tone in range(1,5):
         if any(reference['id']==ref_id for reference in professional_references(tone)):
-            return FileResponse(DATA_DIR/'references'/ref_id/'audio.wav',media_type='audio/wav')
+            return FileResponse(professional_audio_path(ref_id),media_type='audio/wav')
     with SessionLocal() as db:
         row=db.get(ToneReference,ref_id)
         if not row or row.teacher_id!=reference_owner(user):raise HTTPException(404,'没有找到可访问的示范录音。')
