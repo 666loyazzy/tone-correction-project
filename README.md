@@ -83,9 +83,9 @@ docker build --secret id=proxy_ca,src=/etc/ssl/certs/ca-certificates.crt -t tone
 
 ## Skills、Harness 与 Memory
 
-每次录音完成声学分析后，自动生成图文科学报告：原始 F0 曲线、有效帧比例、前中后段音高中位数、同声调复练变化和三步单因素复练图示。报告解释测量方法、证据、目标声调、对照变化、练习实验和依据范围。字体与图表标签采用较深颜色，并提供手机网页布局。
+每次录音完成声学分析后，页面展示 F0 曲线、有效帧比例、前中后段音高、同声调复练变化和三步练习图示。智能体直接在对话里解释发音特点、关键证据和下一轮动作，不生成报告。字体与图表标签采用较深颜色，并提供手机网页布局。
 
-`scientific-response` 是每次教学回复的强制 skill。服务器 chat harness 按权限校验 → 计算证据 → 加载回复规范及资料 → 模型/计算报告 → 输出校验 → 保存执行；读取 skill 文本和版本哈希，禁止跳步。完整报告若结构或教学边界不合规，明确使用计算证据报告回退。`POST /api/chat/stream` 按实际步骤发送状态，页面流程图逐步点亮，显示完成时间或失败位置；不以动画伪造运行进度。
+`scientific-response` 和 `anti-defensive-writing` 是每次教学回复的强制 skill。服务器 chat harness 按权限校验 → 计算证据 → 加载回复规范及资料 → 生成分析与建议 → 校验事实与表述 → 保存执行；记录所加载 skill 的实际哈希，禁止跳步。保存前删除泛泛的自我削弱表述；无依据的声学数值或教学结论回退到实测练习建议。`POST /api/chat/stream` 按实际步骤发送状态，页面流程图逐步点亮，显示完成时间或失败位置；不以动画伪造运行进度。
 
 使用 DeepSeek V4 Pro 时设 `LLM_MODEL=deepseek-v4-pro`。可通过 `LLM_REASONING_EFFORT=high`、`LLM_MAX_TOKENS=8192`、`LLM_TIMEOUT_SECONDS=120` 调整解读预算。DeepSeek 请求启用思考模式，但页面展示可核对的测量和结论，不展示模型内部推理文本。来源：[DeepSeek 接口文档](https://api-docs.deepseek.com/api/create-chat-completion/)。
 

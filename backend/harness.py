@@ -25,6 +25,14 @@ def initial_trace(steps=None):
              hashlib.sha256(skill_text(entry['skill']).encode()).hexdigest()[:12]} for entry in (STEPS if steps is None else steps)]
 
 
+def load_chat_skills():
+    names = list(dict.fromkeys(['scientific-response', 'anti-defensive-writing'] + MANIFEST['required_chat_skills']))
+    texts = [skill_text(name) for name in names]
+    versions = [{'name': name, 'sha256': hashlib.sha256(text.encode()).hexdigest()[:12]}
+                for name, text in zip(names, texts)]
+    return '\n'.join(texts), versions
+
+
 class AnalysisHarness:
     """Code-enforced ordered stages. The language model cannot reorder these."""
     def __init__(self, practice_id: str | None, steps=None, on_trace=None):

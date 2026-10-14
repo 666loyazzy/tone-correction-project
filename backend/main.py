@@ -23,7 +23,7 @@ from sqlalchemy import delete, select
 from .auth import current_user, public_user, router as auth_router, teacher
 from .database import (Conversation, LearningMemory, Message, Practice, SessionLocal, User,
                        engine, identifier, initialize)
-from .harness import MANIFEST, initial_trace, AnalysisHarness, skill_text
+from .harness import MANIFEST, initial_trace, AnalysisHarness, load_chat_skills
 from .jobs import cleanup, practice_directory, queued_analysis, run_analysis
 from .memory import load_memory
 from .tutor import answer, retrieve, validate_answer
@@ -283,7 +283,6 @@ class ChatRequest(BaseModel):
     tone: int = Field(default=3,ge=1,le=4)
     conversation_id: str | None = None
     analysis_id: str | None = None
-    report: bool = False
 
 
 async def run_chat(body: ChatRequest,user: User,on_trace=None):
@@ -319,22 +318,22 @@ async def run_chat(body: ChatRequest,user: User,on_trace=None):
     harness.end('已计算前中后段观测、有效帧比例及同声调复练变化' if measured else '当前没有分析数据，进入录音准备指导')
     harness.begin('chat.retrieve')
     entries=retrieve(body.message,target_tone)
-    contract=skill_text('scientific-response')
-    skills=contract+'\n'+'\n'.join(skill_text(name) for name in ('tone-teaching','tone-analysis'))
-    harness.end('强制读取 scientific-response、tone-teaching、tone-analysis；资料：'+', '.join(item['id'] for item in entries))
+    skills,versions=load_chat_skills()
+    harness.trace[harness.active]['loaded_skills']=versions
+    harness.end('强制读取 '+', '.join(item['name'] for item in versions)+'；资料：'+', '.join(item['id'] for item in entries))
     harness.begin('chat.answer')
     try:
         response=await answer(body.message,target_tone,result,context,memory,measured=measured,entries=entries,skills=skills)
     except (httpx.HTTPError,ValueError,KeyError,IndexError,TypeError) as exc:
         reason=(f'模型 API 返回 HTTP {exc.response.status_code}，请检查密钥、额度与模型配置。' if isinstance(exc,httpx.HTTPStatusError)
-                else '模型报告被截断，请增加输出预算。' if isinstance(exc,ValueError) and '被截断' in str(exc)
+                else '模型回复被截断，请增加输出预算。' if isinstance(exc,ValueError) and '被截断' in str(exc)
                 else '模型请求未完成，请检查网络、模型配置或超时时间；已提取的声学结果仍可查看。')
         harness.fail(reason)
         raise HTTPException(503,{'message':reason,'trace':harness.trace}) from None
-    harness.end('模型已返回报告' if response['mode']=='api' else '模型尚未配置，已生成完整计算证据报告')
+    harness.end('模型已返回发音分析与练习建议' if response['mode']=='api' else '模型尚未配置，已根据实测曲线生成练习建议')
     harness.begin('chat.validate')
-    response=validate_answer(response,measured,body.report)
-    harness.end('模型未满足回复结构、测量数值或教学边界，已回退计算证据报告' if response['mode']=='guarded' else '已检查回复结构、测量数值与教学边界，资料链接来自服务器')
+    response=validate_answer(response,measured)
+    harness.end('已执行 anti-defensive-writing；无依据的测量数值或教学结论已替换为实测练习建议' if response['mode']=='guarded' else '已执行 anti-defensive-writing 表述检查、测量数值与教学边界校验')
     harness.begin('chat.save')
     with SessionLocal() as db:
         row=owned_conversation(db,conversation_id,user)
@@ -342,7 +341,7 @@ async def run_chat(body: ChatRequest,user: User,on_trace=None):
         db.add(Message(conversation_id=row.id,role='user',content=body.message))
         db.add(Message(conversation_id=row.id,role='assistant',content=response['text'],sources=response['sources']))
         db.commit()
-    harness.end('已保存报告正文和引用资料，可在历史对话中继续追问')
+    harness.end('已保存分析、练习建议和资料，可在历史对话中继续追问')
     harness.complete()
     return {**response,'conversation_id':conversation_id,'trace':harness.trace,'evidence':measured}
 
@@ -364,7 +363,7 @@ async def chat_stream(body: ChatRequest,user: User=Depends(current_user)):
             queue.put_nowait({'type':'error','message':detail if isinstance(detail,str) else detail['message'],
                              'trace':detail.get('trace',[]) if isinstance(detail,dict) else []})
         except Exception:
-            queue.put_nowait({'type':'error','message':'科学报告未完成，请重试；声学结果仍可查看。'})
+            queue.put_nowait({'type':'error','message':'教学回复未完成，请重试；声学结果仍可查看。'})
     async def events():
         task=asyncio.create_task(produce())
         try:

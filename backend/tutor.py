@@ -6,8 +6,8 @@ import re
 from pathlib import Path
 
 import httpx
-from .harness import skill_text
-from .scientific import evidence, local_report
+from .harness import load_chat_skills
+from .scientific import evidence, local_feedback
 
 KNOWLEDGE = json.loads((Path(__file__).parent / 'knowledge.json').read_text(encoding='utf-8'))
 
@@ -26,14 +26,14 @@ async def answer(message: str, tone: int, result: dict | None, past: list[dict],
     measured = evidence(result) if measured is None else measured
     sources = [{key: item[key] for key in ['id', 'title', 'url']} for item in entries]
     if not os.getenv('LLM_API_KEY') or not os.getenv('LLM_MODEL'):
-        return {'mode': 'local', 'text': local_report(measured) + '\n\n当前为代码生成的科学练习报告，未调用模型 API。', 'sources': sources}
-    system = (skills if skills is not None else '\n'.join(skill_text(name) for name in ('scientific-response','tone-teaching','tone-analysis'))) + '\n' + (
+        return {'mode': 'local', 'text': local_feedback(measured), 'sources': sources}
+    system = (skills if skills is not None else load_chat_skills()[0]) + '\n' + (
         '你是声调纠正系统的科学教学智能体，面向汉语二语学习者。'
-        '分析报告按六部分组织：测量方法与录音质量、本次声学证据、目标声调与证据解释、同声调复练对比、下一轮练习实验、方法依据与适用范围。'
-        '围绕当前问题作答：完整报告用约700至1200个中文字；后续针对性提问可简短，但必须引用相关观测。'
+        '直接和学习者交流，先给出发音判断，再解释图表证据，最后给出复练动作。自动分析约200至450个中文字，三段即可；追问按问题展开。不要写报告或六节标题。'
+        '强制遵循 anti-defensive-writing：自信地陈述有观测支持的分析，删除仅供参考、是否更符合目标还需结合回听和教师参考等泛泛收尾。'
         '具体引用已给出的数值、单位、有效帧比例和前中后段观测，解释它们怎样支持结论。数值只能来自上下文。'
-        '把测量事实、教学解释和待验证假设分开；明确缺失帧、不同参数和选区造成的不确定性，不编造置信度百分比。'
-        '对照同一人的此前同声调练习，解释变化，不把数值变化直接称为进步。没有此前练习时建立个人基线。'
+        '把曲线观察和练习动作连接起来；缺失帧或参数差异确实影响结论时，说清该数据条件并直接给出解决动作。'
+        '对照同一人的此前同声调练习，具体指出哪段升降变化以及怎样调整。没有此前练习时保留本次曲线作对照。'
         '结合学习目标和过去练习，提出一项当前最值得验证的发音假设，并设计只改变一个因素的三次复练，写清保持条件、观察指标和如何复核。'
         '依据仅引用knowledge中已有的条目id，例如[research]或[quality]，不得自行生成文献、链接或研究结论。'
         '只能描述提供的声学数据，不得声称听过原始录音，不得编造评分或医学诊断、肌肉病因。'
@@ -61,7 +61,7 @@ async def answer(message: str, tone: int, result: dict | None, past: list[dict],
         response.raise_for_status()
         choice = response.json()['choices'][0]
         if choice.get('finish_reason') == 'length':
-            raise ValueError('模型报告被截断，请增加 LLM_MAX_TOKENS 或降低 LLM_REASONING_EFFORT。')
+            raise ValueError('模型回复被截断，请增加 LLM_MAX_TOKENS 或降低 LLM_REASONING_EFFORT。')
         text = choice['message']['content']
         if not isinstance(text, str) or not text.strip() or len(text) > 12000:
             raise ValueError('Empty model response')
@@ -100,11 +100,23 @@ def measured_numbers_only(text: str, measured: dict) -> bool:
     return True
 
 
-def validate_answer(response: dict, measured, report=False):
-    headings=('测量方法与录音质量','本次声学证据','目标声调与证据解释','同声调复练对比','下一轮练习实验','方法依据与适用范围')
-    incomplete=report and measured is not None and not all(title in response['text'] for title in headings)
+def confident_reply(text: str) -> str:
+    """Remove generic defensive boilerplate, preserving measured claims and data conditions."""
+    defensive=r'是否更符合目标.{0,35}(?:回听|教师)|(?:还需|仍需|需要)结合回听和教师参考|(?:仅供|仅作)参考|不能据此判断是否(?:进步|改善)|最终.{0,12}(?:由教师|以教师).{0,12}(?:判断|为准)'
+    paragraphs=[]
+    for paragraph in text.split('\n'):
+        sentences=re.findall(r'[^。！？]+[。！？]?',paragraph)
+        kept=''.join(sentence for sentence in sentences if not re.search(defensive,sentence))
+        paragraphs.append(kept)
+    return '\n'.join(paragraphs).strip()
+
+
+def validate_answer(response: dict, measured):
     wrong_denominator=re.search(r'最低点[^。\n]{0,40}选区[^。\n]{0,25}\d+(?:\.\d+)?\s*%',response['text'])
     unsupported=measured is not None and response['mode']=='api' and (not measured_numbers_only(response['text'],measured) or bool(wrong_denominator))
-    if incomplete or unsupported or re.search(r'(?:得分|评分|分数)\s*[:：为是]?\s*\d|(?:准确率|置信度)\s*[:：为是]?\s*\d+(?:\.\d+)?%|诊断为|肌肉萎缩|环甲肌无力', response['text']):
-        return {**response, 'mode':'guarded', 'text':local_report(measured)+'\n\n模型输出未通过教学边界检查，已采用计算证据报告。'}
-    return response
+    if unsupported or re.search(r'(?:得分|评分|分数)\s*[:：为是]?\s*\d|(?:准确率|置信度)\s*[:：为是]?\s*\d+(?:\.\d+)?%|诊断为|肌肉萎缩|环甲肌无力', response['text']):
+        return {**response, 'mode':'guarded', 'text':local_feedback(measured)}
+    text=confident_reply(response['text'])
+    if not text:
+        return {**response, 'mode':'guarded', 'text':local_feedback(measured)}
+    return {**response, 'text':text}

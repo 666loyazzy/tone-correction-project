@@ -51,7 +51,10 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     await page.waitForSelector('#science-visuals:not([hidden])');
     assert.equal(await page.locator('#science-quality-plot svg').count(),1);
     assert.equal(await page.locator('#science-regions-plot .science-bar').count(),3);
-    assert.ok((await page.locator('#science-body').textContent()).includes('下一轮练习实验'));
+    assert.equal(await page.locator('#science-body').count(),0);
+    assert.equal(await page.locator('#science-title').textContent(),'本次发音图解');
+    assert.ok((await page.locator('#messages').textContent()).includes('下一轮这样练'));
+    assert.ok(!(await page.locator('#messages').textContent()).includes('是否更符合目标'));
     assert.equal(await page.locator('#chat-trace li.completed').count(),6);
     assert.equal(await page.locator('#agent-nodes .completed').count(),6);
     assert.equal(await page.locator('#trace li.completed').count(),8);

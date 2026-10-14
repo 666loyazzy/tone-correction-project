@@ -64,43 +64,43 @@ def evidence(result: dict | None, previous: dict | None = None) -> dict | None:
     return output
 
 
-def local_report(measured: dict | None) -> str:
+def local_feedback(measured: dict | None) -> str:
     if measured is None:
-        return ('测量准备\n先选择目标声调，录一个完整音节并回听，再点击分析。\n'
-                '分析后将提供有效 F0 比例、分段走势、声学特征和同声调复练对比；教师示范音可用于教学参照。')
-    a, q, f = measured['algorithm'], measured['quality'], measured['features']
-    sections = [
-        '测量方法与录音质量\n'
-        f"Praat {a['praat_version']}，raw autocorrelation，步长 {a['step_s']} 秒，范围 {a['pitch_floor_hz']}–{a['pitch_ceiling_hz']} Hz。"
-        f"选区 {measured['selection']['start_s']:.2f}–{measured['selection']['end_s']:.2f} 秒；有效 F0 {q['valid_frames']}/{q['total_frames']} 帧（{q['voiced_percent']}%）。"
-        + ('质量提示：'+'；'.join(q['warnings']) if q['warnings'] else '现有检测未发现录音质量提示。'),
-    ]
-    if f:
-        regions = '；'.join(f"{r['label']}中位 F0 {r['median_f0_hz']:.1f} Hz（{r['valid_frames']}/{r['total_frames']} 帧）"
-                           if r['median_f0_hz'] is not None else f"{r['label']}有效 F0 不足" for r in measured['regions'])
-        sections.append('本次声学证据\n'
-            f"起始 {f['start_f0_hz']:.1f} Hz，结束 {f['end_f0_hz']:.1f} Hz，首尾差 {f['end_minus_start_semitones']:+.2f} 半音；"
-            f"最低 {f['min_f0_hz']:.1f} Hz，最高 {f['max_f0_hz']:.1f} Hz。最低点位于首尾有效 F0 时间跨度的 {f['minimum_position']*100:.1f}%。"
-            + regions + '。')
-        sections.append('目标声调与证据解释\n'+measured['target']+
-            f"本次起点到最低点相差 {measured['drop_to_minimum_semitones']:.2f} 半音，最低点到终点相差 {measured['rise_from_minimum_semitones']:.2f} 半音；"
-            '结合曲线和回听判断各段是否对应一次完整发音。断线处不进行走势插值。')
+        return '先选择目标声调，以舒适音量录一个完整音节，再点击分析。我会结合曲线说明你的升降特点，并给出下一轮的具体练习动作。'
+    q, f, tone = measured['quality'], measured['features'], measured['tone']
+    if not f:
+        return '本次有效基频不足。重新截取一个完整音节，固定麦克风距离，用舒适音量再录一次；看到连续的有效曲线后，重点观察前、中、后段的升降。'
+    delta=f['end_minus_start_semitones']
+    if tone == 3:
+        if f['min_f0_hz'] < min(f['start_f0_hz'], f['end_f0_hz']):
+            point='这次发音已经形成先降后升的轮廓。下一轮把低音区到收尾的回升连起来，保持一个完整音节。'
+        elif delta > 0:
+            point='这次发音的主要走势是上升。练孤立三声时，先把前段降下来，再从低音区连贯回升。'
+        elif delta < 0:
+            point='这次下降延伸到了收尾。下一轮在低音区后接上回升，让孤立三声的降升轮廓完整。'
+        else:
+            point='这次首尾音高接近。下一轮把前段下降、低音区和后段回升依次连起来。'
+    elif tone == 2:
+        point=('这次末尾高于起点，已经形成二声的上升走势。下一轮把中段到末尾的上升连贯读完。' if delta > 0
+               else '这次收尾没有高于起点。下一轮保持起音舒适，把中段到末尾连续向上带，读完整个二声。')
+    elif tone == 4:
+        point=('这次末尾低于起点，下降方向符合四声的练习目标。下一轮把下降贯穿整个音节。' if delta < 0
+               else '这次收尾没有低于起点。下一轮从舒适的高起点连续降下来，把四声读完整。')
     else:
-        sections.append('本次声学证据\n有效基频不足以计算稳定特征，保留缺失值；本轮优先改善录音和选区，再讨论声调走势。')
-        sections.append('目标声调与证据解释\n'+measured['target']+'本轮先取得足够的有效 F0，再检验该目标的声学走势。')
+        point=f"这次音高跨度为 {measured['pitch_range_semitones']:.2f} 半音。下一轮稳定起音到收尾的音高，把一声连贯读平。"
+    regions='；'.join(f"{r['label']}中位音高 {r['median_f0_hz']:.1f} Hz" if r['median_f0_hz'] is not None
+                     else f"{r['label']}有效 F0 不足" for r in measured['regions'])
+    observation=(f"看曲线：起始 {f['start_f0_hz']:.1f} Hz，结束 {f['end_f0_hz']:.1f} Hz，首尾差 {delta:+.2f} 半音。"
+                 f"{regions}。最低点位于首尾有效 F0 时间跨度的 {f['minimum_position']*100:.1f}%。")
+    if q['warnings']:
+        observation+='录音调整：'+'；'.join(q['warnings'])+'。'
     comparison = measured['comparison']
     if comparison and comparison['changes']:
         c = comparison['changes']
-        text = (f"与本人此前同声调练习 {comparison['practice_id'][:8]} 相比，选区时长变化 {c['selected_duration_s']:+.3f} 秒，"
-                f"首尾半音差变化 {c['end_minus_start_semitones']:+.2f} 半音，最低点相对位置变化 {c['minimum_position']*100:+.1f} 个百分点。"
-                '这些是变化量；是否更符合目标还需结合回听和教师参考。')
+        observation+=(f"相比上次，首尾差变化 {c['end_minus_start_semitones']:+.2f} 半音，"
+                      f"最低点相对位置变化 {c['minimum_position']*100:+.1f} 个百分点；两张曲线直接展示升降幅度与衔接位置的变化。")
     elif comparison:
-        text = '已有此前同声调练习，但参数不同或有效 F0 不足，本次不直接计算特征差值。统一参数和发音选区后复练。'
+        observation+='统一两次的提取参数和发音选区，再比较升降幅度与衔接位置。'
     else:
-        text = '尚无此前同声调的已完成练习。本次作为个人基线，下一次在相同设置下进行对照。'
-    sections.append('同声调复练对比\n'+text)
-    sections.append('下一轮练习实验\n'+('先回听并处理质量提示，确认一次完整发音的选区。' if q['warnings'] else '')+
-                    measured['experiment']+'逐次保存数据，观察变化是否能够重复出现。')
-    sections.append('方法依据与适用范围\n'+measured['interpretation_scope']+
-                    '测量方法参照 Praat 文档；二声、三声研究提供了考察时间线索的依据，不能把研究实验准确率迁移成本系统成绩。')
-    return '\n\n'.join(sections)
+        observation+='保留这次曲线，作为下一次同声调练习的对照。'
+    return '\n\n'.join([point, observation, '下一轮这样练：'+measured['experiment']])

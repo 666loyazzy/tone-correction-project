@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "analysis_steps": [
     {"id":"audio.decode","label":"校验与解码","skill":"recording-quality"},
     {"id":"audio.segment","label":"确定发音选区","skill":"recording-quality"},
@@ -10,14 +10,14 @@
     {"id":"chart.prepare","label":"准备可视化数据","skill":"chart-data"},
     {"id":"memory.update","label":"更新学习记忆","skill":"learning-memory"}
   ],
-  "chat_steps": ["校验会话与练习权限","计算证据与复练变化","召回教学 skill 与资料","生成科学练习报告","校验输出","保存对话"],
-  "required_chat_skills": ["scientific-response", "tone-teaching", "tone-analysis"],
+  "chat_steps": ["校验会话与练习权限","计算证据与复练变化","加载回复规范与资料","生成分析与练习建议","校验事实与表述","保存对话"],
+  "required_chat_skills": ["scientific-response", "anti-defensive-writing", "tone-teaching", "tone-analysis"],
   "chat_workflow": [
     {"id":"chat.authorize","label":"校验会话与练习权限","skill":"tone-analysis"},
     {"id":"chat.evidence","label":"计算证据与复练变化","skill":"tone-analysis"},
     {"id":"chat.retrieve","label":"召回教学 skill 与资料","skill":"scientific-response"},
-    {"id":"chat.answer","label":"生成科学练习报告","skill":"tone-teaching"},
-    {"id":"chat.validate","label":"校验输出","skill":"scientific-response"},
+    {"id":"chat.answer","label":"生成分析与练习建议","skill":"tone-teaching"},
+    {"id":"chat.validate","label":"校验事实与表述","skill":"anti-defensive-writing"},
     {"id":"chat.save","label":"保存对话","skill":"learning-memory"}
   ]
 }

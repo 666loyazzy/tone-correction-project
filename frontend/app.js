@@ -10,7 +10,7 @@ let history = [];
 let requestController;
 let authMode = 'login';
 let authStatus = {needs_setup:false, setup_token_required:false};
-const sciencePrompt='请基于本次声学证据生成完整的科学练习报告，结合录音质量、分段走势、本人此前同声调练习、学习目标和研究资料，给出可验证的单因素三次复练实验。';
+const sciencePrompt='请直接分析我这次发音：先明确说出曲线显示的特点，再用关键数据解释，并结合上次练习和学习目标，给出下一轮只调整一个因素、连续三次的具体练习动作。';
 
 async function api(path, options = {}) {
   const response = await fetch(path, options);
@@ -160,7 +160,7 @@ function drawAgentLines(){
 }
 
 function renderAgentFlow(trace=[]){
-  const labels=['权限校验','计算声学证据','加载回复规范与资料','模型科学解读','报告校验','保存报告'];
+  const labels=['权限校验','计算声学证据','加载回复规范与资料','模型发音分析','事实与表述校验','保存分析与建议'];
   if(state.modelConfigured===false || trace[3]?.summary?.includes('模型尚未配置'))labels[3]='计算证据解读';
   $('#agent-nodes').replaceChildren();
   labels.forEach((label,index)=>{
@@ -187,19 +187,19 @@ async function streamTeaching(body,onTrace){
   try{
     while(true){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split('\n');buffer=lines.pop();lines.forEach(consume);}
     buffer+=decoder.decode();consume(buffer);
-    if(!result)throw new Error('报告连接中断，请重试。');return result;
+    if(!result)throw new Error('回复连接中断，请重试。');return result;
   }catch(error){await reader.cancel().catch(()=>{});throw error;}
   finally{reader.releaseLock();}
 }
 
-function clearScientificReport(){
-  $('#science-visuals').hidden=true;$('#science-body').replaceChildren();$('#science-origin').textContent='';$('#science-sources').replaceChildren();$('#science-status').textContent='完成录音分析后生成';
+function clearEvidenceVisuals(){
+  $('#science-visuals').hidden=true;$('#science-origin').textContent='';$('#science-status').textContent='完成录音分析后展示';
   renderAgentFlow();
 }
 
-function showScientificReport(data){
+function showEvidenceVisuals(data){
   const e=data.evidence;if(!e)return;
-  $('#science-status').textContent=data.mode==='api'?'模型结合实测证据解读':data.mode==='guarded'?'输出校验后的计算报告':'计算证据报告 · 模型未启用';
+  $('#science-status').textContent=data.mode==='api'?'DeepSeek 结合实测曲线分析 · 建议见下方对话':data.mode==='guarded'?'已采用实测曲线练习建议 · 建议见下方对话':'实测曲线练习建议 · 本地规则';
   $('#science-origin').textContent=`${tones[e.tone-1]} · 练习 ${e.practice_id.slice(0,8)} · Praat ${e.algorithm.praat_version} · ${e.algorithm.pitch_floor_hz}–${e.algorithm.pitch_ceiling_hz} Hz`;
   const percent=e.quality.voiced_percent, radius=38, circumference=2*Math.PI*radius;
   $('#science-quality-plot').innerHTML=`<svg viewBox="0 0 160 125" role="img" aria-label="有效基频帧占比 ${percent}%"><circle cx="80" cy="50" r="${radius}" class="donut-base"/><circle cx="80" cy="50" r="${radius}" class="donut-value" stroke-dasharray="${circumference*percent/100} ${circumference}" transform="rotate(-90 80 50)"/><text x="80" y="55" text-anchor="middle" class="science-value">${percent}%</text><text x="80" y="113" text-anchor="middle" class="science-label">${e.quality.valid_frames}/${e.quality.total_frames} 帧有效 F0</text></svg>`;
@@ -210,38 +210,28 @@ function showScientificReport(data){
   if(comparison&&Object.keys(comparison.changes).length){
     const fields=[['选区时长',comparison.changes.selected_duration_s,'秒'],['首尾音高差',comparison.changes.end_minus_start_semitones,'半音'],['最低点位置',comparison.changes.minimum_position*100,'百分点']];
     for(const [label,value,unit] of fields){const card=document.createElement('div'),caption=document.createElement('small'),number=document.createElement('strong');caption.textContent=label;number.textContent=`${value>=0?'+':''}${value.toFixed(2)} ${unit}`;card.append(caption,number);$('#science-comparison').append(card);}
-    $('#science-compare-note').textContent=`相对本人此前练习 ${comparison.practice_id.slice(0,8)} 的变化量，结合回听判断。`;
+    $('#science-compare-note').textContent=`对比本人此前练习 ${comparison.practice_id.slice(0,8)}：查看升降幅度与最低点位置的变化。`;
   }else{$('#science-compare-note').textContent=comparison?'对照参数不同或有效 F0 不足，先统一条件再比较。':'本次建立个人基线，下一次同声调练习可进行对照。';}
   $('#science-experiment').textContent=e.experiment;
-  $('#science-body').replaceChildren();
-  const sectionNames=['测量方法与录音质量','本次声学证据','目标声调与证据解释','同声调复练对比','下一轮练习实验','方法依据与适用范围'];
-  for(const line of data.text.split('\n').filter(Boolean)){
-    const heading=line.match(/^#{1,4}\s+(.+)$/)||line.match(/^\*\*(.+)\*\*$/);
-    const element=document.createElement(heading||sectionNames.includes(line.trim())?'h3':'p');
-    element.textContent=heading?heading[1]:line;$('#science-body').append(element);
-  }
-  $('#science-sources').replaceChildren();
-  for(const source of data.sources){const link=document.createElement(source.url?'a':'span');link.textContent=source.title;if(source.url){link.href=source.url;link.target='_blank';link.rel='noopener noreferrer';}$('#science-sources').append(link);}
   $('#science-visuals').hidden=false;
 }
 
-async function sendTeaching(message,report=false){
+async function sendTeaching(message,withVisuals=false){
   if(state.chatBusy)return;
   const analysisId=state.reviewOnly?null:state.practiceId;
   state.chatBusy=true;$('#chat-send').disabled=true;updateButtons();
-  if(report){$('#science-status').textContent='正在结合实测证据生成报告…';$('#science-body').textContent='声学图表已完成，正在读取对照练习与资料并生成解释。';}
+  if(withVisuals)$('#science-status').textContent='正在结合曲线生成发音分析与练习建议…';
   try{
-    const data=await streamTeaching({message,tone:state.tone,conversation_id:state.conversationId,analysis_id:analysisId,report},trace=>{
+    const data=await streamTeaching({message,tone:state.tone,conversation_id:state.conversationId,analysis_id:analysisId},trace=>{
       renderChatTrace(trace);if(state.practiceId===analysisId)renderAgentFlow(trace);
     });
     state.conversationId=data.conversation_id;
-    if(report&&state.practiceId===analysisId){showScientificReport(data);addMessage('科学报告已更新：请查看上方的图表、证据解释和复练实验。','assistant',data.sources);}
-    else if(report){addMessage(`练习 ${analysisId.slice(0,8)} 的科学报告已保存在历史对话中。`);}
-    else addMessage(data.text,'assistant',data.sources);
+    if(withVisuals&&state.practiceId===analysisId)showEvidenceVisuals(data);
+    addMessage(data.text,'assistant',data.sources);
     renderChatTrace(data.trace);
-    $('#chat-mode').textContent=data.mode==='api'?'模型科学解读':data.mode==='guarded'?'已校验的科学报告':'计算证据 · 本地规则';
+    $('#chat-mode').textContent=data.mode==='api'?'DeepSeek 发音分析':data.mode==='guarded'?'实测练习建议':'实测证据 · 本地规则';
     await loadConversations();
-  }catch(error){addMessage(error.message);if(error.trace){renderChatTrace(error.trace);renderAgentFlow(error.trace);}if(report)$('#science-status').textContent='报告未完成，可点击重新生成';}
+  }catch(error){addMessage(error.message);if(error.trace){renderChatTrace(error.trace);renderAgentFlow(error.trace);}if(withVisuals)$('#science-status').textContent='回复未完成，可点击重新解读';}
   finally{state.chatBusy=false;$('#chat-send').disabled=false;updateButtons();}
 }
 
@@ -269,7 +259,7 @@ async function setAudio(blob, filename, elapsed = 0) {
   state.duration = elapsed;
   state.waveform = [];
   state.result = null;
-  clearScientificReport();
+  clearEvidenceVisuals();
   state.practiceId = null;
   state.reviewOnly = false;
   $('#analysis-flow').hidden = true;
@@ -456,7 +446,7 @@ window.addEventListener('pageshow', event => {
   if (event.persisted) location.reload();
 });
 document.querySelectorAll('.tone').forEach(button => button.addEventListener('click', () => {
-  chooseTone(Number(button.dataset.tone)); state.result=null; renderChart(); clearScientificReport();$('#quality').hidden=true; updateButtons();
+  chooseTone(Number(button.dataset.tone)); state.result=null; renderChart(); clearEvidenceVisuals();$('#quality').hidden=true; updateButtons();
 }));
 $('#upload').addEventListener('click', () => $('#file').click());
 $('#file').addEventListener('change', () => {

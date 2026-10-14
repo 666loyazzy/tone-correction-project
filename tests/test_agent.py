@@ -76,6 +76,7 @@ class AgentTests(unittest.TestCase):
                 payload=remote.post.call_args.kwargs['json']
                 self.assertIn('name: tone-teaching',payload['messages'][0]['content'])
                 self.assertIn('name: scientific-response',payload['messages'][0]['content'])
+                self.assertIn('name: anti-defensive-writing',payload['messages'][0]['content'])
                 self.assertIn('learning_memory',payload['messages'][1]['content'])
 
     def test_harness_refuses_skipping_required_steps(self):
@@ -83,13 +84,36 @@ class AgentTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):harness.begin('praat.extract')
         with self.assertRaises(RuntimeError):harness.complete()
 
-    def test_scientific_report_uses_owned_measurements_and_comparison(self):
+    def test_anti_defensive_writing_runs_before_save_and_cannot_be_skipped(self):
+        import httpx
+        from backend.harness import load_chat_skills, skill_text
+        client=self.learner('direct_feedback')
+        with patch.dict('os.environ',{'LLM_API_KEY':'test-only','LLM_MODEL':'test-model'}):
+            with patch('backend.tutor.httpx.AsyncClient') as constructor:
+                remote=constructor.return_value.__aenter__.return_value
+                remote.post=AsyncMock(return_value=httpx.Response(200,json={'choices':[{'message':{'content':
+                    '下一轮把低音区到收尾的回升连起来。是否更符合目标还需结合回听和教师参考。'}}]},
+                    request=httpx.Request('POST','https://example.test/chat/completions')))
+                data=client.post('/api/chat',json={'message':'怎样练三声？'}).json()
+        self.assertEqual(data['text'],'下一轮把低音区到收尾的回升连起来。')
+        saved=client.get('/api/conversations/'+data['conversation_id']).json()['messages'][-1]
+        self.assertEqual(saved['content'],data['text'])
+        from backend.tutor import confident_reply
+        self.assertEqual(confident_reply('中段有效 F0 不足，重新截取完整音节再录一次。'),
+                         '中段有效 F0 不足，重新截取完整音节再录一次。')
+        def missing(name):
+            if name=='anti-defensive-writing':raise FileNotFoundError(name)
+            return skill_text(name)
+        with patch('backend.harness.skill_text',side_effect=missing):
+            with self.assertRaises(FileNotFoundError):load_chat_skills()
+
+    def test_feedback_uses_owned_measurements_and_comparison(self):
         client=self.learner('science_user')
         first=self.practice(client)
         other=self.learner('science_other')
         self.practice(other)
         second=self.practice(client)
-        response=client.post('/api/chat',json={'message':'生成科学报告','tone':2,'analysis_id':second['id']})
+        response=client.post('/api/chat',json={'message':'分析发音并给练习建议','tone':2,'analysis_id':second['id']})
         self.assertEqual(response.status_code,200,response.text)
         data=response.json(); measured=data['evidence']
         self.assertEqual(measured['tone'],3)
@@ -97,14 +121,16 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(measured['features'],second['result']['features'])
         self.assertEqual(len(measured['regions']),3)
         self.assertEqual(sum(r['total_frames'] for r in measured['regions']),second['result']['quality']['total_frames'])
-        self.assertIn('下一轮练习实验',data['text'])
+        self.assertIn('下一轮这样练',data['text'])
+        self.assertNotIn('方法依据与适用范围',data['text'])
+        self.assertNotIn('教师参考',data['text'])
         self.assertIn('半音',data['text'])
         self.assertTrue(all(stage['finished_at']>=stage['started_at'] for stage in data['trace']))
         self.assertTrue(all(stage['skill_version'] and stage['summary'] for stage in data['trace']))
-        self.assertEqual(other.post('/api/chat',json={'message':'生成报告','analysis_id':second['id']}).status_code,404)
+        self.assertEqual(other.post('/api/chat',json={'message':'分析发音','analysis_id':second['id']}).status_code,404)
 
     def test_scientific_evidence_preserves_missing_frames_and_parameter_limits(self):
-        from backend.scientific import evidence, local_report
+        from backend.scientific import evidence, local_feedback
         from copy import deepcopy
         client=self.learner('science_quality')
         row=self.practice(client); result=deepcopy(row['result'])
@@ -114,7 +140,7 @@ class AgentTests(unittest.TestCase):
         self.assertTrue(all(r['median_f0_hz'] is None for r in measured['regions']))
         self.assertEqual(measured['quality']['voiced_percent'],0)
         self.assertNotIn('pitch_range_semitones',measured)
-        self.assertIn('有效基频不足',local_report(measured))
+        self.assertIn('有效基频不足',local_feedback(measured))
         from backend.tutor import measured_numbers_only
         live=evidence(row['result'])
         self.assertTrue(measured_numbers_only(f"最低 {row['result']['features']['min_f0_hz']:.1f} Hz",live))
@@ -136,7 +162,7 @@ class AgentTests(unittest.TestCase):
                 remote=constructor.return_value.__aenter__.return_value
                 response=httpx.Response(200,json={'choices':[{'message':{'content':'诊断为环甲肌无力，评分为99'}}]},request=httpx.Request('POST','https://api.deepseek.com/chat/completions'))
                 remote.post=AsyncMock(return_value=response)
-                data=client.post('/api/chat',json={'message':'科学报告','analysis_id':row['id']}).json()
+                data=client.post('/api/chat',json={'message':'发音分析','analysis_id':row['id']}).json()
                 self.assertEqual(data['mode'],'guarded');self.assertNotIn('评分为99',data['text'])
                 payload=remote.post.call_args.kwargs['json']
                 context=json.loads(payload['messages'][1]['content'].split('：',1)[1])
@@ -144,7 +170,7 @@ class AgentTests(unittest.TestCase):
                 self.assertEqual(payload['thinking'],{'type':'enabled'})
                 self.assertGreater(payload['max_tokens'],800)
                 remote.post=AsyncMock(return_value=httpx.Response(401,request=httpx.Request('POST','https://api.deepseek.com/chat/completions')))
-                failed=client.post('/api/chat',json={'message':'科学报告','analysis_id':row['id']})
+                failed=client.post('/api/chat',json={'message':'发音分析','analysis_id':row['id']})
                 self.assertEqual(failed.status_code,503)
                 trace=failed.json()['detail']['trace']
                 self.assertEqual(trace[3]['status'],'failed');self.assertEqual(trace[4]['status'],'pending')
@@ -163,7 +189,7 @@ class AgentTests(unittest.TestCase):
         from backend.harness import MANIFEST, skill_text
         import hashlib
         client=self.learner('stream_user'); row=self.practice(client)
-        response=client.post('/api/chat/stream',json={'message':'生成科学报告','analysis_id':row['id'],'report':True})
+        response=client.post('/api/chat/stream',json={'message':'分析发音并给练习建议','analysis_id':row['id'],'report':True})
         self.assertEqual(response.status_code,200)
         events=[json.loads(line) for line in response.text.splitlines()]
         self.assertEqual(events[-1]['type'],'result')
@@ -172,6 +198,11 @@ class AgentTests(unittest.TestCase):
         expected=hashlib.sha256(skill_text('scientific-response').encode()).hexdigest()[:12]
         self.assertEqual(data['trace'][2]['skill_version'],expected)
         self.assertIn('scientific-response',data['trace'][2]['summary'])
+        versions={s['name']:s['sha256'] for s in data['trace'][2]['loaded_skills']}
+        anti_hash=hashlib.sha256(skill_text('anti-defensive-writing').encode()).hexdigest()[:12]
+        self.assertEqual(versions['anti-defensive-writing'],anti_hash)
+        self.assertEqual(data['trace'][4]['skill_version'],anti_hash)
+        self.assertIn('anti-defensive-writing',data['trace'][4]['summary'])
         self.assertTrue(all(e['status']=='completed' for e in data['trace']))
         harness=AnalysisHarness(None,MANIFEST['chat_workflow'])
         with self.assertRaises(RuntimeError):harness.begin('chat.answer')
