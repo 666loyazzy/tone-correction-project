@@ -92,6 +92,7 @@ async function loggedIn(user) {
   const guest=user.role==='guest';
   $('.small-avatar').textContent=guest?'客':user.display_name.slice(0,1);
   $('#user-description').textContent=guest?'游客试用 · 24 小时':'个人练习与学习记忆';
+  if(guest)$('.privacy-note').textContent='录音和练习结果保存在你的独立游客空间。试用有效 24 小时，过期后自动清理，也可在练习记录中删除。';
   $('#logout').textContent=$('#mobile-logout').textContent=guest?'登录 / 注册':'退出';
   $('#teacher-nav').hidden=user.role!=='teacher';
   const config=await api('/api/agent/config');

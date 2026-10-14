@@ -39,6 +39,7 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
       assert.equal(identity.user.role,'guest');
       assert.equal(await page.locator('#teacher-nav').isVisible(),false);
       assert.match(await page.locator('#user-description').textContent(),/24/);
+      assert.match(await page.locator('.privacy-note').textContent(),/独立游客空间.*24/);
       await page.setViewportSize({width:1440,height:1120});
     }else{
       const setup=await page.locator('#auth-title').textContent();
