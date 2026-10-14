@@ -14,6 +14,9 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
       LLM_MODEL: ${LLM_MODEL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_REASONING_EFFORT: ${LLM_REASONING_EFFORT:-high}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-8192}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-120}
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
