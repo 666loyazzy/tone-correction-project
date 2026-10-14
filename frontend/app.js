@@ -44,6 +44,7 @@ function showAuth() {
   $('#auth-setup').required = authStatus.needs_setup && authStatus.setup_token_required;
   $('#auth-switch').hidden = authStatus.needs_setup;
   $('#auth-switch').textContent = register ? '已有账号？返回登录' : '有邀请码？创建学习者账号';
+  $('#guest-start-label').textContent=state.user?.role==='guest'?'返回游客试用':'游客立即试用';
 }
 
 async function loadHistory() {
@@ -84,9 +85,14 @@ async function loadConversations() {
 }
 
 async function loggedIn(user) {
+  if(state.user && state.user.id!==user.id){location.reload();return;}
   state.user=user;
   $('#auth-dialog').close();$('.shell').inert=false;
   $('#user-name').textContent=user.display_name;
+  const guest=user.role==='guest';
+  $('.small-avatar').textContent=guest?'客':user.display_name.slice(0,1);
+  $('#user-description').textContent=guest?'游客试用 · 24 小时':'个人练习与学习记忆';
+  $('#logout').textContent=$('#mobile-logout').textContent=guest?'登录 / 注册':'退出';
   $('#teacher-nav').hidden=user.role!=='teacher';
   const config=await api('/api/agent/config');
   state.modelConfigured=config.model_configured;renderAgentFlow();
@@ -568,7 +574,13 @@ $('#delete-practice').addEventListener('click',async()=>{
     await loadHistory();renderChart();updateButtons();notify('这次练习、录音及对应学习摘要已删除。');
   }catch(error){notify(error.message,true);}
 });
-$('#auth-dialog').addEventListener('cancel',event=>event.preventDefault());
+$('#auth-dialog').addEventListener('cancel',event=>{if(state.user?.role==='guest')$('.shell').inert=false;else event.preventDefault();});
+$('#guest-start').addEventListener('click',async()=>{
+  const button=$('#guest-start');button.disabled=true;$('#guest-start-label').textContent='正在准备试用…';$('#auth-error').textContent='';
+  try{const data=await api('/api/auth/guest',{method:'POST'});await loggedIn(data.user);}
+  catch(error){$('#auth-error').textContent=error.message;}
+  finally{button.disabled=false;$('#guest-start-label').textContent=state.user?.role==='guest'?'返回游客试用':'游客立即试用';}
+});
 $('#auth-switch').addEventListener('click',()=>{authMode=authMode==='login'?'register':'login';$('#auth-error').textContent='';showAuth();});
 $('#auth-form').addEventListener('submit',async event=>{
   event.preventDefault();$('#auth-submit').disabled=true;$('#auth-error').textContent='';
@@ -581,7 +593,8 @@ $('#auth-form').addEventListener('submit',async event=>{
   finally{$('#auth-submit').disabled=false;}
 });
 async function logout(){try{await api('/api/auth/logout',{method:'POST'});location.reload();}catch(error){notify(error.message,true);}}
-$('#logout').addEventListener('click',logout);$('#mobile-logout').addEventListener('click',logout);
+function accountAction(){if(state.user?.role==='guest'){if(state.busy||state.chatBusy)return;showAuth();}else logout();}
+$('#logout').addEventListener('click',accountAction);$('#mobile-logout').addEventListener('click',accountAction);
 document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>$('#'+button.dataset.close).close()));
 async function openMemory(){
   try{

@@ -7,10 +7,11 @@ import time
 from pathlib import Path
 
 from celery import Celery
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from .acoustics import AudioError, analyze, decode_audio
-from .database import DATA_DIR, Practice, SessionLocal
+from .database import DATA_DIR, GuestQuota, Practice, SessionLocal, User
+from .auth import GUEST_SECONDS
 from .harness import AnalysisHarness, validate_chart
 from .memory import remember_practice
 
@@ -88,3 +89,11 @@ def cleanup():
                           Practice.state.in_(['completed', 'failed']))).all()
         for practice in expired:
             shutil.rmtree(practice_directory(practice.id), ignore_errors=True)
+        guest_ids = list(db.scalars(select(User.id).where(User.role == 'guest', User.created_at < time.time() - GUEST_SECONDS)))
+        guest_practices = list(db.scalars(select(Practice.id).where(Practice.user_id.in_(guest_ids)))) if guest_ids else []
+        if guest_ids:
+            db.execute(delete(User).where(User.id.in_(guest_ids)))
+        db.execute(delete(GuestQuota).where(GuestQuota.expires_at < time.time()))
+        db.commit()
+    for practice_id in guest_practices:
+        shutil.rmtree(practice_directory(practice_id), ignore_errors=True)

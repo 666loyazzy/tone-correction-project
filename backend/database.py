@@ -65,6 +65,13 @@ class Setting(Base):
     value: Mapped[str] = mapped_column(Text)
 
 
+class GuestQuota(Base):
+    __tablename__ = 'guest_quotas'
+    key: Mapped[str] = mapped_column(String(160), primary_key=True)
+    used: Mapped[int] = mapped_column(Integer, default=0)
+    expires_at: Mapped[float] = mapped_column(Float, index=True)
+
+
 class Practice(Base):
     __tablename__ = 'practices'
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=identifier)

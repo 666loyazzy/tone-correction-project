@@ -29,13 +29,26 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
   });
   try{
     await page.goto(base);await page.waitForSelector('#auth-dialog[open]');
-    const setup=await page.locator('#auth-title').textContent();
-    await page.fill('#auth-username','preview_teacher');await page.fill('#auth-password','preview-test-password');
-    if(setup.includes('创建')){
-      await page.fill('#auth-display','演示教师');
-      if(process.env.SETUP_TOKEN)await page.fill('#auth-setup',process.env.SETUP_TOKEN);
+    if(process.env.TEST_GUEST==='1'){
+      await page.setViewportSize({width:390,height:844});
+      assert.equal(await page.locator('#guest-start').isVisible(),true);
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
+      await page.screenshot({path:path.join(artifacts,'guest-entry-mobile.png'),fullPage:true});
+      await page.click('#guest-start');await page.waitForSelector('#auth-dialog',{state:'hidden'});
+      const identity=await (await context.request.get(base+'/api/auth/me')).json();
+      assert.equal(identity.user.role,'guest');
+      assert.equal(await page.locator('#teacher-nav').isVisible(),false);
+      assert.match(await page.locator('#user-description').textContent(),/24/);
+      await page.setViewportSize({width:1440,height:1120});
+    }else{
+      const setup=await page.locator('#auth-title').textContent();
+      await page.fill('#auth-username','preview_teacher');await page.fill('#auth-password','preview-test-password');
+      if(setup.includes('创建')){
+        await page.fill('#auth-display','演示教师');
+        if(process.env.SETUP_TOKEN)await page.fill('#auth-setup',process.env.SETUP_TOKEN);
+      }
+      await page.click('#auth-submit');await page.waitForSelector('#auth-dialog',{state:'hidden'});
     }
-    await page.click('#auth-submit');await page.waitForSelector('#auth-dialog',{state:'hidden'});
     assert.equal(await page.locator('main > .agent-flow').count(),0);
     assert.equal(await page.locator('.practice-panel #analysis-flow #agent-nodes').count(),1);
     assert.equal(await page.locator('#trace').count(),0);
@@ -124,6 +137,12 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     await page.evaluate(()=>navigator.mediaDevices.getUserMedia=()=>Promise.reject(new DOMException('denied','NotAllowedError')));
     await page.click('#record');await page.waitForFunction(()=>document.querySelector('#record-status').textContent.includes('未获授权'));
     assert.equal(await page.locator('#upload').isEnabled(),true);
+    if(process.env.TEST_GUEST==='1'){
+      await page.click('#mobile-logout');await page.waitForSelector('#auth-dialog[open]');
+      assert.match(await page.locator('#guest-start-label').textContent(),/返回游客试用/);
+      await page.click('#guest-start');await page.waitForSelector('#auth-dialog',{state:'hidden'});
+      if(process.env.TEST_SESSION_PATH)await context.storageState({path:process.env.TEST_SESSION_PATH});
+    }
     assert.deepEqual(errors,[]);
     console.log('Browser checks passed: recording, Praat, nine acoustic stages, reference playback, corrected audio, scoring charts, score history, thinking animation, chat, memory, mobile layout and permission failure.');
   }finally{await browser.close();}
