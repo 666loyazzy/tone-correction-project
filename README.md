@@ -31,7 +31,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows.ps1 Install
 若 Python 3.12 不在 PATH 中，安装时增加 `-PythonPath "Python 3.12 的完整路径"`。
 脚本创建 Windows `.venv`，安装项目依赖以及 imageio-ffmpeg 0.6.0 提供的 Windows FFmpeg；缓存和临时文件位于 `runtime`。本次本机部署额外在 `runtime/python` 放置独立 Python 3.12 运行时，全部位于 E 盘。运行时不加入源码仓库。
 
-访问 http://localhost:8000。双击 `start.cmd` 启动后台服务，`stop.cmd` 停止。停止前等待当前分析结束。`backup.cmd` 会暂停服务、压缩完整 `data` 目录，再恢复原来运行状态。`scripts/windows.ps1 Status` 查询运行情况。
+访问 [http://localhost:8000](http://localhost:8000)。双击 `start.cmd` 启动后台服务，`stop.cmd` 停止。停止前等待当前分析结束。`backup.cmd` 会暂停服务、压缩完整 `data` 目录，再恢复原来运行状态。`scripts/windows.ps1 Status` 查询运行情况。
 
 本机入口固定使用 SQLite 和进程内分析：数据库是 `E:\tone-correction-project\data\tone_correction.sqlite3`，每次练习的原始录音和解码 WAV 位于 `data\practices\<练习ID>\source.audio` 与 `audio.wav`。日志在 `logs`，私有备份在 `backups`。Docker 模式的命名卷由 Docker Desktop 管理，不由本机入口使用。
 
@@ -50,7 +50,7 @@ python -m venv .venv
 .venv/bin/python -m uvicorn backend.main:app --env-file .env --host 127.0.0.1 --port 8000
 ```
 
-访问 http://localhost:8000。首次访问使用 `.env` 的 `SETUP_TOKEN` 创建教师账号，密码至少 10 个字符。未设置 `SETUP_TOKEN` 时，仅允许从服务器 loopback 初始化。教师可以在“教师工作台”生成学习者邀请码。
+访问 [http://localhost:8000](http://localhost:8000)。首次访问使用 `.env` 的 `SETUP_TOKEN` 创建教师账号，密码至少 10 个字符。未设置 `SETUP_TOKEN` 时，仅允许从服务器 loopback 初始化。教师可以在“教师工作台”生成学习者邀请码。
 
 localhost 可以请求麦克风；通过手机访问 HTTP 服务器 IP 通常不能录音，需使用 HTTPS。教师可查看通过其邀请码注册的学习者练习；其他学习者之间的音频、练习、对话和记忆相互隔离。
 
