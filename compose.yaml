@@ -87,7 +87,7 @@ services:
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${CADDY_CONFIG_FILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
 volumes:

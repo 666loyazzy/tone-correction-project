@@ -77,6 +77,12 @@ docker compose --profile https up -d
 
 首次远程注册教师账号时输入 `.env` 中的 `SETUP_TOKEN`。账号密码由用户设置，本项目没有固定默认密码。通过 HTTPS 代理访问会使用 Secure 登录 cookie；不要在公开代理前暴露应用端口。
 
+### 公网 IP 的 HTTPS 入口
+
+使用 Caddy 2.11.7 及以上版本，可在服务器私有 `.env` 中设置 `SITE_ADDRESS=你的公网IPv4`（只填一个 IP，不带协议和端口）以及 `CADDY_CONFIG_FILE=./Caddyfile.ip`，再执行 `docker compose --profile https up -d --no-deps caddy`。通过 `https://公网IPv4` 访问，前端和 API 共用同一来源，支持浏览器录音及 Secure 会话。
+
+`Caddyfile.ip` 显式使用 Let's Encrypt 的 `shortlived` 公网 IP 证书，通过 TCP 80 完成 HTTP-01 验证，并给不发送 SNI 的 IP 客户端选择正确证书。证书有效期约 160 小时，由 Caddy 自动续期；`caddy_data` 卷持久保存证书和 ACME 账户，Caddy 容器自动重启。TCP 80/443 应保持可达。配置完成后，用 `curl --fail https://公网IPv4/api/health` 验证受信任的 HTTPS，浏览器地址栏应无证书警告。回到域名入口时，将以上两项改回域名和 `./Caddyfile`，重新启动 Caddy 服务。大陆服务器的备案要求仍适用。
+
 当前受代理管理的云环境构建镜像时可挂载完整 CA 包，保持 TLS 校验：
 
 ```bash

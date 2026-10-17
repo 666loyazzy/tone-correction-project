@@ -1,0 +1,17 @@
+{
+    # Browsers omit SNI when visiting a numeric IP address.
+    default_sni {$SITE_ADDRESS}
+}
+
+{$SITE_ADDRESS} {
+    tls {
+        issuer acme https://acme-v02.api.letsencrypt.org/directory {
+            profile shortlived
+            disable_tlsalpn_challenge
+        }
+    }
+    request_body {
+        max_size 13MB
+    }
+    reverse_proxy app:8000
+}
