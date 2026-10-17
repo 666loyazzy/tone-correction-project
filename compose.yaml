@@ -86,6 +86,7 @@ services:
     ports: ["80:80", "443:443"]
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+      DOMAIN_ADDRESS: ${DOMAIN_ADDRESS:-}
     volumes:
       - ${CADDY_CONFIG_FILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

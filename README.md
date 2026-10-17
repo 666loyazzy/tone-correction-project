@@ -91,6 +91,8 @@ docker build --secret id=proxy_ca,src=/etc/ssl/certs/ca-certificates.crt -t tone
 
 普通服务器不需要该参数。不要将环境代理 CA、模型密钥或数据库备份加入仓库。
 
+如需同时启用公网 IP 和域名 HTTPS，保留 `SITE_ADDRESS=公网IPv4`，设置 `DOMAIN_ADDRESS=你的域名` 与 `CADDY_CONFIG_FILE=./Caddyfile.dual`，再更新 Caddy 服务。IP 使用短期证书，域名使用独立域名证书，均由 Caddy 自动管理。有效的已有域名证书会从持久卷加载复用。证书申请及本地 HTTPS 验证成功，与公网域名能否通过接入商的备案检查是两个独立结果；应分别验证。
+
 ## Skills、Harness 与 Memory
 
 每次录音完成声学分析后，页面展示 F0 曲线、有效帧比例、前中后段音高、同声调复练变化和三步练习图示。智能体直接在对话里解释发音特点、关键证据和下一轮动作，不生成报告。字体与图表标签采用较深颜色，并提供手机网页布局。
