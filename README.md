@@ -62,6 +62,8 @@ localhost 可以请求麦克风；通过手机访问 HTTP 服务器 IP 通常不
 
 建议小规模试点从 4 核 CPU、8 GB 内存、100 GB SSD 起步；容量需按实际并发测试。无需本地 GPU。
 
+2 核 2 GB 的演示或少量试用部署可在私有 `.env` 设置 `CELERY_CONCURRENCY=1`，一次运行一个声学任务，其余任务在 Redis 排队。保留 PostgreSQL、Redis、独立 worker 与定时清理；该配置的并发容量需在目标服务器上实测。
+
 ```bash
 python scripts/configure.py
 ```
