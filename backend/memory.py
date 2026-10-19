@@ -26,7 +26,7 @@ def remember_practice(user_id: str, practice_id: str, result: dict):
         memory = db.scalar(select(LearningMemory).where(LearningMemory.user_id==user_id).with_for_update())
         if not memory.enabled:
             return '长期记忆已关闭，未写入摘要'
-        fact = {'practice_id':practice_id, 'created_at':time.time(), 'tone':result['tone'],
+        fact = {'practice_id':practice_id, 'created_at':time.time(), 'tone':result['tone'], 'syllable':result.get('syllable','ma'),
                 'features':result['features'], 'quality_warnings':result['quality']['warnings'],
                 'algorithm':result['algorithm'], 'score':None if not result.get('score') else {
                     'total':result['score']['total'],'reference_name':result['score']['reference']['name'],

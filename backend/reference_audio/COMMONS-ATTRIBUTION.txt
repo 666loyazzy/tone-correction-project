@@ -1,0 +1,173 @@
+commons-ba-1: 真人示范 · bā
+https://commons.wikimedia.org/wiki/File:Zh-b%C4%81.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-ba-2: 真人示范 · bá
+https://commons.wikimedia.org/wiki/File:Zh-b%C3%A1.ogg
+Yue Tan
+CC BY-SA 3.0 us https://creativecommons.org/licenses/by-sa/3.0/us/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-ba-3: 真人示范 · bǎ
+https://commons.wikimedia.org/wiki/File:Zh-b%C7%8E.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-ba-4: 真人示范 · bà
+https://commons.wikimedia.org/wiki/File:Zh-b%C3%A0.ogg
+Yue Tan
+CC BY-SA 3.0 us https://creativecommons.org/licenses/by-sa/3.0/us/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-da-2: 真人示范 · dá
+https://commons.wikimedia.org/wiki/File:Zh-d%C3%A1.ogg
+Yue Tan
+CC BY-SA 3.0 us https://creativecommons.org/licenses/by-sa/3.0/us/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-da-3: 真人示范 · dǎ
+https://commons.wikimedia.org/wiki/File:Zh-d%C7%8E.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-di-1: 真人示范 · dī
+https://commons.wikimedia.org/wiki/File:Zh-d%C4%AB.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-di-2: 真人示范 · dí
+https://commons.wikimedia.org/wiki/File:Zh-d%C3%AD.ogg
+Yue Tan
+CC BY-SA 3.0 us https://creativecommons.org/licenses/by-sa/3.0/us/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-di-4: 真人示范 · dì
+https://commons.wikimedia.org/wiki/File:Zh-d%C3%AC.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-mi-2: 真人示范 · mí
+https://commons.wikimedia.org/wiki/File:Zh-m%C3%AD.ogg
+Yue Tan
+CC BY-SA 3.0 us https://creativecommons.org/licenses/by-sa/3.0/us/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-mi-3: 真人示范 · mǐ
+https://commons.wikimedia.org/wiki/File:Zh-m%C7%90.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-mi-4: 真人示范 · mì
+https://commons.wikimedia.org/wiki/File:Zh-m%C3%AC.ogg
+Yue Tan
+CC BY-SA 3.0 us https://creativecommons.org/licenses/by-sa/3.0/us/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-ni-2: 真人示范 · ní
+https://commons.wikimedia.org/wiki/File:Zh-n%C3%AD.ogg
+Yue Tan
+CC BY-SA 3.0 us https://creativecommons.org/licenses/by-sa/3.0/us/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-ni-3: 真人示范 · nǐ
+https://commons.wikimedia.org/wiki/File:Zh-n%C7%90.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-lu-4: 真人示范 · lù
+https://commons.wikimedia.org/wiki/File:Zh-l%C3%B9.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-shi-2: 真人示范 · shí
+https://commons.wikimedia.org/wiki/File:Zh-sh%C3%AD.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-shi-4: 真人示范 · shì
+https://commons.wikimedia.org/wiki/File:Zh-sh%C3%AC.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-shu-1: 真人示范 · shū
+https://commons.wikimedia.org/wiki/File:Zh-sh%C5%AB.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-shu-3: 真人示范 · shǔ
+https://commons.wikimedia.org/wiki/File:Zh-sh%C7%94.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-shu-4: 真人示范 · shù
+https://commons.wikimedia.org/wiki/File:Zh-sh%C3%B9.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-yi-1: 真人示范 · yī
+https://commons.wikimedia.org/wiki/File:Zh-y%C4%AB.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-yi-2: 真人示范 · yí
+https://commons.wikimedia.org/wiki/File:Zh-y%C3%AD.ogg
+Yue Tan
+CC BY-SA 3.0 us https://creativecommons.org/licenses/by-sa/3.0/us/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-yi-4: 真人示范 · yì
+https://commons.wikimedia.org/wiki/File:Zh-y%C3%AC.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-wu-2: 真人示范 · wú
+https://commons.wikimedia.org/wiki/File:Zh-w%C3%BA.ogg
+Yue Tan
+CC BY-SA 3.0 us https://creativecommons.org/licenses/by-sa/3.0/us/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-wu-3: 真人示范 · wǔ
+https://commons.wikimedia.org/wiki/File:Zh-w%C7%94.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-wu-4: 真人示范 · wù
+https://commons.wikimedia.org/wiki/File:Zh-w%C3%B9.ogg
+Yue Tan
+CC BY-SA 3.0 us https://creativecommons.org/licenses/by-sa/3.0/us/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-yu-2: 真人示范 · yú
+https://commons.wikimedia.org/wiki/File:Zh-y%C3%BA.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-yu-3: 真人示范 · yǔ
+https://commons.wikimedia.org/wiki/File:Zh-y%C7%94.ogg
+Wei Gao, Vion Nicolas
+CC BY 2.0 fr https://creativecommons.org/licenses/by/2.0/fr/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.
+
+commons-yu-4: 真人示范 · yù
+https://commons.wikimedia.org/wiki/File:Zh-y%C3%B9.ogg
+Yue Tan
+CC BY-SA 3.0 us https://creativecommons.org/licenses/by-sa/3.0/us/deed.en
+Changes: mono PCM WAV conversion and Praat curve extraction.

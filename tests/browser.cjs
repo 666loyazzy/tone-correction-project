@@ -57,6 +57,20 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     assert.equal(await page.locator('#science-visuals').evaluate(el=>el.closest('section')===document.querySelector('#messages').closest('section')),true);
     assert.equal(await page.locator('#analysis-flow').isVisible(),false);
     await page.waitForFunction(()=>document.querySelector('#reference-select').options.length>0);
+    const exercises=await (await context.request.get(base+'/assets/exercises.json')).json();
+    assert.equal(exercises.length,12);
+    for(const exercise of exercises){
+      if(exercise.id!==await page.locator('#syllable-select').inputValue()){
+        const ready=page.waitForResponse(response=>response.url().includes('/api/references?')&&new URL(response.url()).searchParams.get('syllable')===exercise.id);
+        await page.selectOption('#syllable-select',exercise.id);
+        const expected=(await (await ready).json()).references.map(reference=>reference.id);
+        await page.waitForFunction(ids=>Array.from(document.querySelector('#reference-select').options).map(option=>option.value).join(',')===ids.join(','),expected);
+      }
+      assert.deepEqual(await page.locator('.tone b').allTextContents(),exercise.pinyin);
+      assert.ok((await page.locator('#exercise-note').textContent()).includes(exercise.pinyin[2]));
+    }
+    await page.selectOption('#syllable-select','ma');
+    await page.waitForFunction(()=>document.querySelector('#reference-select').value==='openlearn-ma-3');
     if(await page.locator('#reference-select option[value="openlearn-ma-3"]').count()){
       for(const tone of [1,2,3,4]){
         await page.click(`.tone[data-tone="${tone}"]`);
@@ -68,6 +82,11 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
       }
       await page.click('.tone[data-tone="3"]');await page.waitForFunction(()=>document.querySelector('#reference-select').value==='openlearn-ma-3');
     }
+    await page.selectOption('#syllable-select','ba');
+    await page.waitForFunction(()=>document.querySelector('#reference-select').dataset.context==='ba:3'&&!document.querySelector('#play-reference').disabled);
+    await page.click('#play-reference');
+    await page.waitForFunction(()=>!document.querySelector('#reference-audio').paused&&document.querySelector('#reference-audio').readyState>=2);
+    await page.locator('#reference-audio').evaluate(audio=>audio.pause());
     let releaseFirstReply;const firstReplyGate=new Promise(resolve=>releaseFirstReply=resolve);let held=false;
     await page.route('**/api/chat/stream',async route=>{if(!held){held=true;await firstReplyGate;}await route.continue();});
     await page.screenshot({path:path.join(artifacts,'desktop-empty.png'),fullPage:true});
@@ -91,6 +110,8 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     assert.equal(await page.locator('#science-body').count(),0);
     assert.equal(await page.locator('#science-title').textContent(),'本次发音图解');
     assert.ok((await page.locator('#messages').textContent()).includes('下一轮这样练'));
+    assert.ok((await page.locator('#messages').textContent()).includes('bǎ'));
+    assert.ok(!(await page.locator('#messages').textContent()).includes('mǎ'));
     assert.ok(!(await page.locator('#messages').textContent()).includes('是否更符合目标'));
     assert.equal(await page.locator('#chat-trace li.completed').count(),6);
     assert.equal(await page.locator('#agent-nodes .completed').count(),6);
@@ -129,6 +150,8 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     assert.equal(await page.locator('#memory-goal').inputValue(),'重点比较三声的两次曲线');
     await page.click('[data-close="memory-dialog"]');
     await page.locator('.history-item').first().click();await page.waitForFunction(()=>!document.querySelector('#export').disabled);
+    assert.equal(await page.locator('#syllable-select').inputValue(),'ba');
+    assert.match(await page.locator('.history-item').first().textContent(),/bǎ/);
     assert.equal(await page.locator('#score-records tr').count(),2);
     assert.equal(await page.locator('#chart .f0-line').count(),1);
     await page.setViewportSize({width:390,height:844});
@@ -145,7 +168,7 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
       if(process.env.TEST_SESSION_PATH)await context.storageState({path:process.env.TEST_SESSION_PATH});
     }
     assert.deepEqual(errors,[]);
-    console.log('Browser checks passed: recording, Praat, nine acoustic stages, reference playback, corrected audio, scoring charts, score history, thinking animation, chat, memory, mobile layout and permission failure.');
+    console.log('Browser checks passed: twelve syllables, matching native samples, saved syllable restoration, recording, Praat, nine acoustic stages, corrected audio, scoring charts, score history, thinking animation, chat, memory, mobile layout and permission failure.');
   }finally{await browser.close();}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

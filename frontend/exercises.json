@@ -1,0 +1,14 @@
+[
+  {"id":"ma","pinyin":["mā","má","mǎ","mà"],"characters":["妈","麻","马","骂"]},
+  {"id":"ba","pinyin":["bā","bá","bǎ","bà"],"characters":["八","拔","把","爸"]},
+  {"id":"da","pinyin":["dā","dá","dǎ","dà"],"characters":["搭","答","打","大"]},
+  {"id":"di","pinyin":["dī","dí","dǐ","dì"],"characters":["低","笛","底","地"]},
+  {"id":"mi","pinyin":["mī","mí","mǐ","mì"],"characters":["眯","迷","米","蜜"]},
+  {"id":"ni","pinyin":["nī","ní","nǐ","nì"],"characters":["妮","泥","你","逆"]},
+  {"id":"lu","pinyin":["lū","lú","lǔ","lù"],"characters":["撸","炉","鲁","路"]},
+  {"id":"shi","pinyin":["shī","shí","shǐ","shì"],"characters":["诗","十","史","是"]},
+  {"id":"shu","pinyin":["shū","shú","shǔ","shù"],"characters":["书","熟","鼠","树"]},
+  {"id":"yi","pinyin":["yī","yí","yǐ","yì"],"characters":["衣","姨","椅","意"]},
+  {"id":"wu","pinyin":["wū","wú","wǔ","wù"],"characters":["乌","无","五","物"]},
+  {"id":"yu","pinyin":["yū","yú","yǔ","yù"],"characters":["淤","鱼","雨","玉"]}
+]

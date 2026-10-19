@@ -9,11 +9,12 @@ VERSION = 'contour-1.0'
 SOURCE = 'https://assets.cambridge.org/97805216/03980/excerpt/9780521603980_excerpt.htm'
 
 
-def template(tone: int) -> dict:
+def template(tone: int, syllable='ma') -> dict:
     digits={1:'55',2:'35',3:'214',4:'51'}[tone]
     # Chao digits specify levels; this illustrative time placement is a teaching setting.
     levels={1:[.5,.5],2:[0.,1.],3:[1/3,0.,1.],4:[1.,0.]}[tone]
-    return {'id':f'target-{tone}', 'tone':tone, 'kind':'schematic', 'name':f'教学目标示意 · {digits}',
+    return {**({'syllable':syllable} if syllable!='ma' else {}),
+            'id':f'target-{tone}', 'tone':tone, 'kind':'schematic', 'name':f'教学目标示意 · {digits}',
             'source_url':SOURCE, 'version':'target-1',
             'time_normalized':[0.,.45,1.] if tone==3 else [0.,1.],
             'pitch_normalized':levels, 'audio_url':None,
@@ -51,8 +52,9 @@ def aligned(curve: dict, grid: np.ndarray) -> np.ndarray:
 
 
 def evaluate(result: dict, reference: dict | None = None) -> dict:
-    reference=reference or template(result['tone'])
-    digest=hashlib.sha256(json.dumps({'version':VERSION,'reference':reference,
+    syllable=result.get('syllable','ma')
+    reference=reference or template(result['tone'],syllable)
+    digest=hashlib.sha256(json.dumps({**({'syllable':syllable} if syllable!='ma' else {}), 'version':VERSION,'reference':reference,
         'algorithm':result['algorithm']},sort_keys=True,ensure_ascii=False).encode()).hexdigest()[:16]
     q=result['quality']; coverage=100*q['valid_frames']/q['total_frames'] if q['total_frames'] else 0.
     score={'version':VERSION, 'comparison_key':digest, 'reference':reference, 'total':None, 'scale_max':100,

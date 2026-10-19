@@ -2,9 +2,11 @@ import {BrowserRecorder, audioExtension} from './recorder.js';
 import {renderDashboard,startThinking,thinkingStage,stopThinking} from './progress.js';
 
 const $ = selector => document.querySelector(selector);
-const tones = ['mā', 'má', 'mǎ', 'mà'];
+let exercises = [];
+const pronunciation = (tone, syllable=state.syllable) => exercises.find(item=>item.id===syllable)?.pinyin[tone-1] || ['mā','má','mǎ','mà'][tone-1];
+const exerciseQuery = (tone=state.tone, syllable=state.syllable) => `tone=${tone}&syllable=${encodeURIComponent(syllable)}`;
 const recorder = new BrowserRecorder();
-const state = {tone: 3, blob: null, url: null, duration: 0, waveform: [],
+const state = {tone: 3, syllable:'ma', blob: null, url: null, duration: 0, waveform: [],
   cropEdited: false, result: null, busy: false, generation: 0, chatBusy: false,
   user: null, practiceId: null, conversationId: null, reviewOnly: false, modelConfigured: null};
 let history = [];
@@ -48,29 +50,35 @@ function showAuth() {
 }
 
 async function loadHistory() {
-  const [data,scores]=await Promise.all([api('/api/practices'),api('/api/scores?tone='+state.tone)]);
+  const [data,scores]=await Promise.all([api('/api/practices'),api('/api/scores?'+exerciseQuery())]);
   scoreRecords=scores.records;
   history = data.practices.map(item => ({...item, created:new Date(item.created_at*1000).toISOString()}));
   renderHistory();renderDashboard(state.result,scoreRecords,state.tone,state.practiceId);
 }
 
 async function loadReferences(){
-  const request=++referenceRequest,tone=state.tone;
-  const data=await api('/api/references?tone='+tone);
+  const request=++referenceRequest,tone=state.tone,syllable=state.syllable;
+  const data=await api('/api/references?'+exerciseQuery(tone,syllable));
   if(request!==referenceRequest)return;
   references=data.references;
-  const select=$('#reference-select'),previous=select.value;select.replaceChildren();
+  const select=$('#reference-select'),context=`${syllable}:${tone}`,previous=select.dataset.context===context?select.value:'';
+  select.dataset.context=context;select.replaceChildren();
   for(const reference of references){const option=document.createElement('option');option.value=reference.id;option.textContent=reference.name;select.append(option);}
   if(references.some(reference=>reference.id===previous))select.value=previous;
   updateReferencePlayer();updateButtons();
 }
+function playbackReference(){
+  const selected=references.find(item=>item.id===$('#reference-select').value);
+  return selected?.audio_url?selected:references.find(item=>item.audio_url);
+}
 function updateReferencePlayer(){
   const reference=references.find(item=>item.id===$('#reference-select').value);
-  $('#play-reference').disabled=!reference?.audio_url;
+  const playback=playbackReference();
+  $('#play-reference').disabled=!playback?.audio_url;
   $('#reference-audio').pause();$('#reference-audio').hidden=true;
   $('#reference-audio').removeAttribute('src');
-  if(reference?.audio_url)$('#reference-audio').src=reference.audio_url;
-  $('#reference-status').textContent=reference?.kind==='schematic'?'教学目标示意；选择真人示范可回听原声。':'下次分析使用所选示范。点击“听示范”播放原声。';
+  if(playback?.audio_url)$('#reference-audio').src=playback.audio_url;
+  $('#reference-status').textContent=reference?.kind==='schematic'?(playback?'按五度声调目标评分；点“听示范”跟读'+playback.name+'。':'按当前音节的声调目标练习；教师可上传该音节的真人示范。'):'下次分析使用当前音节的所选示范。点击“听示范”播放原声。';
 }
 
 async function loadConversations() {
@@ -119,26 +127,30 @@ function updateButtons() {
   $('#analyze').textContent = state.busy ? '正在提取声调…' : '分析这次发音 ↗';
   $('#export').disabled = !state.result;
   $('#science-generate').disabled = !state.result || state.reviewOnly || state.busy || state.chatBusy;
-  $('#play-reference').disabled=captureBusy||state.busy||!references.find(item=>item.id===$('#reference-select').value)?.audio_url;
+  $('#play-reference').disabled=captureBusy||state.busy||!playbackReference()?.audio_url;
   $('#generate-corrected').disabled=captureBusy||state.busy||!state.result?.score||state.result.score.total===null;
   $('#delete-practice').hidden = !state.practiceId || state.reviewOnly;
   $('#delete-practice').disabled = state.busy || captureBusy;
-  for (const element of document.querySelectorAll('.tone, #start, #end, #floor, #ceiling, #reference-select, #upload-reference, .history-item')) {
-    element.disabled = captureBusy || state.busy;
+  for (const element of document.querySelectorAll('.tone, #syllable-select, #start, #end, #floor, #ceiling, #reference-select, #upload-reference, .history-item')) {
+    element.disabled = captureBusy || state.busy || state.chatBusy;
   }
   $('#download').hidden = captureBusy;
   $('#audio').hidden = captureBusy;
 }
 
-function chooseTone(tone) {
+async function chooseTone(tone, syllable=state.syllable) {
   state.tone = tone;
+  state.syllable = syllable;
+  $('#syllable-select').value=syllable;
   document.querySelectorAll('.tone').forEach(button => {
+    button.querySelector('b').textContent=pronunciation(Number(button.dataset.tone));
     const selected = Number(button.dataset.tone) === tone;
     button.classList.toggle('active', selected);
     button.setAttribute('aria-pressed', String(selected));
   });
-  $('#exercise-note').textContent = `以舒适音量完整读一次“${tones[tone - 1]}”。` + (tone === 3 ? '这里练习的是孤立三声。' : '一次录一个音节，读完后点击停止。');
-  if(state.user)loadReferences().catch(error=>notify(error.message,true));
+  const character=exercises.find(item=>item.id===syllable)?.characters[tone-1];
+  $('#exercise-note').textContent = `以舒适音量完整读一次“${pronunciation(tone)}${character?'（'+character+'）':''}”。` + (tone === 3 ? '这里练习的是孤立三声。' : '一次录一个音节，读完后点击停止。');
+  if(state.user)await loadReferences().catch(error=>notify(error.message,true));
 }
 
 function addMessage(text, role = 'assistant', sources = []) {
@@ -237,7 +249,7 @@ function clearEvidenceVisuals(){
 function showEvidenceVisuals(data){
   const e=data.evidence;if(!e)return;
   $('#science-status').textContent=data.mode==='api'?'DeepSeek 结合实测曲线分析':data.mode==='guarded'?'已采用实测曲线练习建议':'实测曲线练习建议 · 本地规则';
-  $('#science-origin').textContent=`${tones[e.tone-1]} · 练习 ${e.practice_id.slice(0,8)} · Praat ${e.algorithm.praat_version} · ${e.algorithm.pitch_floor_hz}–${e.algorithm.pitch_ceiling_hz} Hz`;
+  $('#science-origin').textContent=`${pronunciation(e.tone,e.syllable||'ma')} · 练习 ${e.practice_id.slice(0,8)} · Praat ${e.algorithm.praat_version} · ${e.algorithm.pitch_floor_hz}–${e.algorithm.pitch_ceiling_hz} Hz`;
   const percent=e.quality.voiced_percent, radius=38, circumference=2*Math.PI*radius;
   $('#science-quality-plot').innerHTML=`<svg viewBox="0 0 160 125" role="img" aria-label="有效基频帧占比 ${percent}%"><circle cx="80" cy="50" r="${radius}" class="donut-base"/><circle cx="80" cy="50" r="${radius}" class="donut-value" stroke-dasharray="${circumference*percent/100} ${circumference}" transform="rotate(-90 80 50)"/><text x="80" y="55" text-anchor="middle" class="science-value">${percent}%</text><text x="80" y="113" text-anchor="middle" class="science-label">${e.quality.valid_frames}/${e.quality.total_frames} 帧有效 F0</text></svg>`;
   const maximum=Math.max(1,...e.regions.map(r=>r.median_f0_hz||0))*1.15;
@@ -260,7 +272,7 @@ async function sendTeaching(message,withVisuals=false){
   startThinking(state.modelConfigured);
   if(withVisuals)$('#science-status').textContent='正在结合曲线生成发音分析与练习建议…';
   try{
-    const data=await streamTeaching({message,tone:state.tone,conversation_id:state.conversationId,analysis_id:analysisId},trace=>{
+    const data=await streamTeaching({message,tone:state.tone,syllable:state.syllable,conversation_id:state.conversationId,analysis_id:analysisId},trace=>{
       renderChatTrace(trace);thinkingStage(trace);if(state.practiceId===analysisId)renderAgentFlow(trace);
     });
     state.conversationId=data.conversation_id;
@@ -350,7 +362,7 @@ function renderChart() {
     $('#metrics').innerHTML = '<div><small>最低音高</small><strong>— <em>Hz</em></strong></div><div><small>结束音高</small><strong>— <em>Hz</em></strong></div><div><small>分析选区</small><strong>— <em>秒</em></strong></div>';
     return;
   }
-  const previous = $('#compare').checked ? history.find(item => item.result?.tone === result.tone && item.id !== state.practiceId)?.result : null;
+  const previous = $('#compare').checked ? history.find(item => item.result?.tone === result.tone && (item.syllable||'ma')===(result.syllable||'ma') && item.id !== state.practiceId)?.result : null;
   const points = relativePoints(result);
   const previousPoints = previous ? relativePoints(previous) : [];
   const values = [...points, ...previousPoints].filter(point => Number.isFinite(point[1])).map(point => point[1]);
@@ -396,7 +408,7 @@ function renderHistory() {
   }
   history.forEach(item => {
     const button=document.createElement('button'); button.className='history-item'; button.type='button';
-    const text=document.createElement('span'); text.textContent=`${tones[item.tone-1]} · ${item.result?.score?.total!==null&&item.result?.score?.total!==undefined?item.result.score.total.toFixed(1)+'分':item.state==='completed'?'已完成':item.state==='failed'?'需重录':'分析中'}`;
+    const text=document.createElement('span'); text.textContent=`${pronunciation(item.tone,item.syllable||'ma')} · ${item.result?.score?.total!==null&&item.result?.score?.total!==undefined?item.result.score.total.toFixed(1)+'分':item.state==='completed'?'已完成':item.state==='failed'?'需重录':'分析中'}`;
     const time=document.createElement('small'); time.textContent=new Date(item.created).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
     button.append(text,time); $('#history').append(button);
     button.addEventListener('click', () => openPractice(item));
@@ -427,11 +439,14 @@ async function openPractice(item, reviewOnly=false) {
   try {
     const row=item.state==='completed'?item:await waitForPractice(item.id);
     if (!row.result) throw new Error(row.error || '这条练习没有分析结果。');
-    chooseTone(row.tone);
+    await chooseTone(row.tone,row.syllable||'ma');
+    if(references.some(ref=>ref.id===row.result.score?.reference.id)){
+      $('#reference-select').value=row.result.score.reference.id;updateReferencePlayer();
+    }
     if (row.audio_available) {
       const response=await fetch('/api/practices/'+row.id+'/audio');
       if (!response.ok) throw new Error('无法读取录音，请重新登录后再试。');
-      await setAudio(await response.blob(),`声调纠正系统-${tones[row.tone-1]}.wav`,row.result.duration_s);
+      await setAudio(await response.blob(),`声调纠正系统-${pronunciation(row.tone,row.syllable||'ma')}.wav`,row.result.duration_s);
       $('#start').value=row.result.selection.start_s.toFixed(2);$('#end').value=row.result.selection.end_s.toFixed(2);
       state.cropEdited=true;
     } else {
@@ -440,7 +455,7 @@ async function openPractice(item, reviewOnly=false) {
     }
     state.result=row.result;state.practiceId=row.id;state.reviewOnly=reviewOnly;
     renderChart();renderWaveform();showQuality(row.result);showTrace(row);
-    const scores=await api('/api/scores?tone='+row.tone);scoreRecords=scores.records;
+    const scores=await api('/api/scores?'+exerciseQuery(row.tone,row.syllable||'ma'));scoreRecords=scores.records;
     renderDashboard(row.result,scoreRecords,row.tone,row.id);
     $('#science-status').textContent='已载入当前曲线与轮廓分，点击“重新解读”继续分析。';
     notify(row.audio_available?'已载入这次练习的录音和曲线，可回听或复练。':'已载入曲线；音频已过保留期。');
@@ -470,7 +485,7 @@ recorder.addEventListener('progress', event => {
 });
 recorder.addEventListener('recorded', event => {
   const {blob,type,elapsed_s}=event.detail;
-  setAudio(blob, `声调纠正系统-${tones[state.tone-1]}-${Date.now()}.${audioExtension(type)}`, elapsed_s);
+  setAudio(blob, `声调纠正系统-${pronunciation(state.tone)}-${Date.now()}.${audioExtension(type)}`, elapsed_s);
 });
 $('#record').addEventListener('click', () => {
   if (recorder.state==='recording') recorder.stop();
@@ -485,6 +500,18 @@ window.addEventListener('pageshow', event => {
 document.querySelectorAll('.tone').forEach(button => button.addEventListener('click', () => {
   chooseTone(Number(button.dataset.tone)); state.result=null; renderChart(); renderDashboard(null,[],state.tone,null);clearEvidenceVisuals();$('#quality').hidden=true; updateButtons();
 }));
+$('#syllable-select').addEventListener('change',async()=>{
+  const syllable=$('#syllable-select').value;
+  ++state.generation;
+  if(state.url)URL.revokeObjectURL(state.url);
+  if(correctedUrl){URL.revokeObjectURL(correctedUrl);correctedUrl=null;}
+  state.blob=null;state.url=null;state.result=null;state.practiceId=null;state.reviewOnly=false;
+  state.duration=0;state.waveform=[];state.cropEdited=false;
+  for(const id of ['audio','corrected-audio']){$('#'+id).pause();$('#'+id).removeAttribute('src');}
+  $('#corrected-audio').hidden=true;$('#preview').hidden=true;$('#analysis-flow').hidden=true;$('#quality').hidden=true;
+  renderChart();renderDashboard(null,[],state.tone,null);clearEvidenceVisuals();
+  await chooseTone(state.tone,syllable);updateButtons();
+});
 $('#upload').addEventListener('click', () => $('#file').click());
 $('#file').addEventListener('change', () => {
   const file=$('#file').files[0]; $('#file').value='';
@@ -500,6 +527,7 @@ $('#analyze').addEventListener('click', async () => {
   const form=new FormData();
   form.append('file',state.blob,'recording.'+audioExtension(state.blob.type));
   form.append('tone',String(state.tone));
+  form.append('syllable',state.syllable);
   if($('#reference-select').value)form.append('reference_id',$('#reference-select').value);
   form.append('pitch_floor',$('#floor').value); form.append('pitch_ceiling',$('#ceiling').value);
   if (state.cropEdited) {
@@ -528,7 +556,7 @@ $('#export').addEventListener('click', () => {
   if (!state.result) return;
   const csv=['Time_s,F0_Hz',...state.result.time_s.map((time,index)=>`${time},${state.result.f0_hz[index]??''}`)].join('\n');
   const url=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
-  const a=document.createElement('a');a.href=url;a.download=`声调纠正系统-${tones[state.result.tone-1]}-F0.csv`;a.click();
+  const a=document.createElement('a');a.href=url;a.download=`声调纠正系统-${pronunciation(state.result.tone,state.result.syllable||'ma')}-F0.csv`;a.click();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
 $('#chat-form').addEventListener('submit',async event=>{
@@ -545,7 +573,7 @@ $('#play-reference').addEventListener('click',async()=>{
 $('#upload-reference').addEventListener('click',()=>$('#reference-file').click());
 $('#reference-file').addEventListener('change',async()=>{
   const file=$('#reference-file').files[0];$('#reference-file').value='';if(!file)return;
-  const form=new FormData();form.append('file',file);form.append('tone',String(state.tone));form.append('name','教师示范 · '+tones[state.tone-1]);
+  const form=new FormData();form.append('file',file);form.append('tone',String(state.tone));form.append('syllable',state.syllable);form.append('name','教师示范 · '+pronunciation(state.tone));
   $('#upload-reference').disabled=true;
   try{const reference=await api('/api/references',{method:'POST',body:form});await loadReferences();$('#reference-select').value=reference.id;updateReferencePlayer();notify('教师示范已保存，后续分析按这条真实曲线评分。');}
   catch(error){notify(error.message,true);}finally{$('#upload-reference').disabled=false;}
@@ -633,7 +661,7 @@ $('#teacher-nav').addEventListener('click',async()=>{
       button.addEventListener('click',async()=>{
         try{const data=await api(`/api/teacher/students/${student.id}/practices`);const completed=data.practices.filter(row=>row.state==='completed');
           $('#student-list').replaceChildren();if(!completed.length)$('#student-list').textContent='这位学习者还没有已完成的练习。';
-          for(const row of completed){const entry=document.createElement('button');entry.type='button';entry.textContent=`${student.display_name} · ${tones[row.tone-1]} · ${new Date(row.created_at*1000).toLocaleString('zh-CN')}`;$('#student-list').append(entry);entry.addEventListener('click',()=>{$('#teacher-dialog').close();openPractice(row,true);});}
+          for(const row of completed){const entry=document.createElement('button');entry.type='button';entry.textContent=`${student.display_name} · ${pronunciation(row.tone,row.syllable||'ma')} · ${new Date(row.created_at*1000).toLocaleString('zh-CN')}`;$('#student-list').append(entry);entry.addEventListener('click',()=>{$('#teacher-dialog').close();openPractice(row,true);});}
         }catch(error){$('#invite-result').textContent=error.message;}
       });
     }
@@ -648,6 +676,10 @@ $('#create-invite').addEventListener('click',async()=>{
 async function initialize(){
   $('.shell').inert=true;updateButtons();
   try{
+    exercises=await api('/assets/exercises.json');
+    const select=$('#syllable-select');select.replaceChildren();
+    for(const item of exercises){const option=document.createElement('option');option.value=item.id;option.textContent=`${item.id} · ${item.characters.join(' / ')}`;select.append(option);}
+    await chooseTone(state.tone);
     authStatus=await api('/api/auth/status');authMode=authStatus.needs_setup?'register':'login';
     const response=await fetch('/api/auth/me');
     if(response.ok)await loggedIn((await response.json()).user);else showAuth();

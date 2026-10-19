@@ -89,7 +89,7 @@ def teaching_feedback(tone: int, features: dict | None, quality: dict) -> list[s
 
 
 def analyze(samples: np.ndarray, rate: int, tone: int, floor: float, ceiling: float,
-            start: float | None, end: float | None, harness=None, reference=None) -> dict:
+            start: float | None, end: float | None, harness=None, reference=None, syllable='ma') -> dict:
     def begin(stage):
         if harness:
             harness.begin(stage)
@@ -164,7 +164,7 @@ def analyze(samples: np.ndarray, rate: int, tone: int, floor: float, ceiling: fl
     quality = {"valid_frames": int(valid.sum()), "total_frames": len(f0),
                "clipped_fraction": round(clipping, 5), "octave_jumps": jumps, "warnings": warnings}
     result = {
-        "tone": tone, "duration_s": round(duration, 5), "sample_rate_hz": rate,
+        "tone": tone, "syllable":syllable, "duration_s": round(duration, 5), "sample_rate_hz": rate,
         "selection": {"start_s": round(offset, 5), "end_s": round(last / rate, 5), "automatic": automatic},
         "time_s": [round(float(t), 5) for t in times],
         "f0_hz": [round(float(v), 3) if v > 0 else None for v in f0],

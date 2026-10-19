@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 import numpy as np
+from .exercises import pronunciation
 
 
 TARGETS = {
@@ -28,11 +29,12 @@ def evidence(result: dict | None, previous: dict | None = None) -> dict | None:
     features = result['features']
     total = quality['total_frames']
     output = {
-        'tone': result['tone'], 'selection': result['selection'],
+        'tone': result['tone'], 'syllable':result.get('syllable','ma'), 'selection': result['selection'],
         'algorithm': result['algorithm'], 'features': features,
         'quality': {**quality, 'voiced_percent': round(100 * quality['valid_frames'] / total, 1) if total else 0},
         'target': TARGETS[result['tone']], 'regions': [], 'comparison': None,
-        'experiment': EXPERIMENTS[result['tone']],
+        'experiment': EXPERIMENTS[result['tone']].replace(['mā','má','mǎ','mà'][result['tone']-1],
+            pronunciation(result.get('syllable','ma'),result['tone'])),
         'interpretation_scope': '同一人的声学观测与可重复练习；无教师参考音、说话者音域校准或评分模型。最低 F0 的位置不是语言学 TP 的自动标注。',
         'minimum_position_definition': '最低点相对位置=(最低有效 F0 时间-首个有效 F0 时间)/(末个有效 F0 时间-首个有效 F0 时间)，分母不是整个选区时长。',
         'score':result.get('score'), 'score_change':None,
@@ -51,7 +53,7 @@ def evidence(result: dict | None, previous: dict | None = None) -> dict | None:
         output['pitch_range_semitones'] = round(12*math.log2(features['max_f0_hz']/features['min_f0_hz']), 3)
         output['drop_to_minimum_semitones'] = round(12*math.log2(features['start_f0_hz']/features['min_f0_hz']), 3)
         output['rise_from_minimum_semitones'] = round(12*math.log2(features['end_f0_hz']/features['min_f0_hz']), 3)
-    if previous and previous['result']['tone'] == result['tone']:
+    if previous and previous['result']['tone'] == result['tone'] and previous['result'].get('syllable','ma')==result.get('syllable','ma'):
         prior = previous['result']
         prior_features = prior['features']
         matching = all(prior['algorithm'].get(key) == result['algorithm'].get(key)

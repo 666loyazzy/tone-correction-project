@@ -17,3 +17,4 @@ logs/
 
 # Publicly licensed teaching examples; private recordings remain excluded.
 !backend/reference_audio/openlearn-ma-*.wav
+!backend/reference_audio/commons-*.wav

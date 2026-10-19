@@ -46,7 +46,8 @@ def run_analysis(identifier: str):
         samples, rate = decode_audio(directory / 'source.audio', directory / 'audio.wav')
         harness.end(f'已解码单声道音频，{rate} Hz，{len(samples)/rate:.2f} 秒')
         result = analyze(samples, rate, tone, parameters['floor'], parameters['ceiling'],
-                         parameters['start'], parameters['end'], harness=harness,reference=parameters.get('reference'))
+                         parameters['start'], parameters['end'], harness=harness,reference=parameters.get('reference'),
+                         syllable=parameters.get('syllable','ma'))
         harness.begin('chart.prepare')
         validate_chart(result)
         harness.end('时间与 F0 数组通过校验；振幅波形与 Hz 曲线分开')

@@ -18,7 +18,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response, StreamingRes
 import json
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, func
 
 from .auth import current_user, public_user, router as auth_router, teacher
 from .database import (Conversation, LearningMemory, Message, Practice, SessionLocal, User,
@@ -32,6 +32,7 @@ from .scoring import ensure_score
 from .progress import router as progress_router, selected_reference
 from .resynthesis import resynthesize
 from .acoustics import AudioError
+from .exercises import validate_syllable, practice_syllable
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_BYTES = 12 * 1024 * 1024
@@ -104,7 +105,7 @@ def owned_practice(db, practice_id: str, user: User, allow_teacher=False):
 
 
 def serialize_practice(practice):
-    return {'id':practice.id, 'tone':practice.tone, 'filename':practice.filename,
+    return {'id':practice.id, 'tone':practice.tone, 'syllable':practice_syllable(practice), 'filename':practice.filename,
             'created_at':practice.created_at, 'state':practice.state, 'result':ensure_score(practice.result),
             'error':practice.error, 'trace':practice.trace,
             'audio_available':(practice_directory(practice.id)/'audio.wav').exists()}
@@ -114,6 +115,7 @@ def serialize_practice(practice):
 async def create_analysis(background: BackgroundTasks,
     file: Annotated[UploadFile, File()],
     tone: Annotated[int, Form(ge=1, le=4)] = 3,
+    syllable: Annotated[str, Form(max_length=10)] = 'ma',
     pitch_floor: Annotated[float, Form()] = 75,
     pitch_ceiling: Annotated[float, Form()] = 600,
     start_s: Annotated[float | None, Form()] = None,
@@ -125,6 +127,7 @@ async def create_analysis(background: BackgroundTasks,
     directory.mkdir(parents=True, mode=0o700)
     queued = False
     try:
+        validate_syllable(syllable)
         if not (math.isfinite(pitch_floor) and math.isfinite(pitch_ceiling) and 50 <= pitch_floor < pitch_ceiling <= 1000):
             raise HTTPException(400, '基频范围需要满足 50 ≤ 下限 < 上限 ≤ 1000 Hz。')
         if (start_s is None) != (end_s is None) or (start_s is not None and (
@@ -149,7 +152,7 @@ async def create_analysis(background: BackgroundTasks,
             db.add(Practice(id=practice_id, user_id=user.id, tone=tone,
                 filename=Path(file.filename or 'recording').name[:120], parameters={
                     'floor':pitch_floor, 'ceiling':pitch_ceiling, 'start':start_s, 'end':end_s,
-                    'reference':selected_reference(user,tone,reference_id)},
+                    'syllable':syllable, 'reference':selected_reference(user,tone,reference_id,syllable)},
                 trace=initial_trace()))
             db.commit()
         if QUEUE_MODE == 'celery':
@@ -303,11 +306,13 @@ def remove_conversation(conversation_id: str,user: User=Depends(current_user)):
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1,max_length=2000)
     tone: int = Field(default=3,ge=1,le=4)
+    syllable: str = Field(default='ma',max_length=10)
     conversation_id: str | None = None
     analysis_id: str | None = None
 
 
 async def run_chat(body: ChatRequest,user: User,on_trace=None):
+    validate_syllable(body.syllable)
     harness=AnalysisHarness(None, MANIFEST['chat_workflow'],on_trace=on_trace)
     harness.begin('chat.authorize')
     with SessionLocal() as db:
@@ -320,6 +325,7 @@ async def run_chat(body: ChatRequest,user: User,on_trace=None):
             raise HTTPException(409,'请等待这次练习完成声学分析。')
         result=ensure_score(practice.result) if practice else None
         target_tone=practice.tone if practice else body.tone
+        target_syllable=practice_syllable(practice) if practice else body.syllable
         past=db.scalars(select(Message).where(Message.conversation_id==row.id)
                         .order_by(Message.created_at.desc()).limit(10)).all()
         context=[{'role':m.role,'content':m.content} for m in reversed(past)]
@@ -327,6 +333,7 @@ async def run_chat(body: ChatRequest,user: User,on_trace=None):
         previous=None
         if practice:
             prior=db.scalar(select(Practice).where(Practice.user_id==user.id, Practice.tone==practice.tone,
+                func.coalesce(Practice.parameters['syllable'].as_string(),'ma')==target_syllable,
                 Practice.state=='completed', Practice.created_at<practice.created_at)
                 .order_by(Practice.created_at.desc()).limit(1))
             if prior and prior.result:
@@ -345,7 +352,7 @@ async def run_chat(body: ChatRequest,user: User,on_trace=None):
     harness.end('强制读取 '+', '.join(item['name'] for item in versions)+'；资料：'+', '.join(item['id'] for item in entries))
     harness.begin('chat.answer')
     try:
-        response=await answer(body.message,target_tone,result,context,memory,measured=measured,entries=entries,skills=skills)
+        response=await answer(body.message,target_tone,result,context,memory,measured=measured,entries=entries,skills=skills,syllable=target_syllable)
     except (httpx.HTTPError,ValueError,KeyError,IndexError,TypeError) as exc:
         reason=(f'模型 API 返回 HTTP {exc.response.status_code}，请检查密钥、额度与模型配置。' if isinstance(exc,httpx.HTTPStatusError)
                 else '模型回复被截断，请增加输出预算。' if isinstance(exc,ValueError) and '被截断' in str(exc)
