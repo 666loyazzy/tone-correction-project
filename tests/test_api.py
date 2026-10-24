@@ -111,7 +111,7 @@ class AnalysisTests(unittest.TestCase):
         response=self.client.get('/')
         self.assertEqual(response.status_code,200)
         self.assertEqual(response.headers['permissions-policy'],'microphone=(self), camera=()')
-        self.assertIn('声调纠正系统',response.text)
+        self.assertIn('智耳正音',response.text)
 
 
 if __name__ == '__main__':

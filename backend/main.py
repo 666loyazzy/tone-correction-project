@@ -62,7 +62,7 @@ async def lifespan(app):
     engine.dispose()
 
 
-app = FastAPI(title='声调纠正项目 · 声调纠正系统', version='1.0.0', lifespan=lifespan)
+app = FastAPI(title='智耳正音', version='1.0.0', lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(progress_router)
 

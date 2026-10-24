@@ -4,25 +4,36 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#f4f3ef">
-  <title>声调纠正系统</title>
+  <title>智耳正音</title>
   <link rel="stylesheet" href="/assets/style.css">
   <script type="module" src="/assets/app.js"></script>
 </head>
 <body>
   <div class="shell">
     <aside class="sidebar">
-      <a class="brand" href="/" aria-label="声调纠正系统首页"><span class="brand-icon">声</span><span>声调纠正系统<span class="brand-sub">汉语语音训练</span></span></a>
+      <a class="brand" href="/" aria-label="智耳正音首页"><span class="brand-icon">耳</span><span>智耳正音<span class="brand-sub">汉语语音训练</span></span></a>
       <div class="sidebar-caption">让每一次练习，都看得见</div>
       <button class="nav-item selected" type="button" id="practice-nav"><span>◉</span> 声调练习 <span class="nav-arrow">↗</span></button>
       <div class="sidebar-label">我的练习记录 <span id="history-count">0</span></div>
       <div id="history" class="history"><p class="empty-history">完成分析后，你的练习<br>会出现在这里。</p></div>
       <button class="nav-item" id="memory-nav" type="button"><span>◇</span> 学习档案</button>
       <button class="nav-item" id="teacher-nav" type="button" hidden><span>♧</span> 教师工作台</button>
-      <div class="sidebar-bottom"><span class="small-avatar">声</span><div><span id="user-name">学习者工作台</span><small id="user-description">个人练习与学习记忆</small></div><button class="text-button" id="logout" type="button">退出</button></div>
+      <div class="sidebar-bottom"><span class="small-avatar">耳</span><div><span id="user-name">学习者工作台</span><small id="user-description">个人练习与学习记忆</small></div><button class="text-button" id="logout" type="button">退出</button></div>
     </aside>
     <main>
-      <header class="topbar"><div><span class="breadcrumb">学习工作台</span><span class="slash">/</span>声调练习</div><div class="topbar-actions"><button class="text-button mobile-account" id="mobile-memory" type="button">学习档案</button><span class="status-pill"><i></i> 录音与分析</span><button class="text-button mobile-account" id="mobile-logout" type="button">退出</button></div></header>
-      <div class="page-intro"><div><p class="eyebrow">听见变化 · 看见进步</p><h1>练习你的汉语声调</h1><p>录一段，听一遍。让声音的走势成为下一次练习的线索。</p></div><span class="intro-mark" aria-hidden="true">声</span></div>
+      <header class="topbar"><div><span class="breadcrumb">智耳正音</span><span class="slash">/</span>声调练习</div><div class="topbar-actions"><button class="text-button mobile-account" id="mobile-memory" type="button">学习档案</button><span class="status-pill"><i></i> 录音与分析</span><button class="text-button mobile-account" id="mobile-logout" type="button">退出</button></div></header>
+      <section class="intro-video card" aria-labelledby="intro-video-title">
+        <div class="section-title"><h2 id="intro-video-title">听见声音的奥秘</h2><span class="video-label">智耳正音 · 视频课堂</span></div>
+        <video id="intro-video" controls playsinline preload="metadata" poster="/assets/media/zhier-intro.jpg" aria-label="智耳正音教学视频">
+          <source src="/assets/media/zhier-intro.mp4" type="video/mp4">
+          你的浏览器暂不支持视频播放，可<a href="/assets/media/zhier-intro.mp4">下载视频</a>观看。
+        </video>
+        <div class="video-commentary" aria-labelledby="video-commentary-title">
+          <h3 id="video-commentary-title">视频解说</h3>
+          <div id="video-commentary-text" class="video-commentary-text"></div>
+        </div>
+      </section>
+      <div class="page-intro"><div><p class="eyebrow">听见变化 · 看见进步</p><h1>练习你的汉语声调</h1><p>录一段，听一遍。让声音的走势成为下一次练习的线索。</p></div><span class="intro-mark" aria-hidden="true">耳</span></div>
       <div class="workspace">
         <section class="practice-panel card" aria-labelledby="practice-title">
           <div class="section-title"><h2 id="practice-title">今天，练习哪一个声调？</h2><span class="step-label">01 / 选择</span></div>
@@ -79,19 +90,19 @@
               <h3>复练变化</h3><div id="science-comparison" class="science-comparison"></div><p id="science-compare-note" class="science-caption"></p>
               <div class="experiment-steps"><div><b>①</b><span>固定录音条件</span></div><i>→</i><div><b>②</b><span>只改变一个因素</span></div><i>→</i><div><b>③</b><span>重复三次并比较</span></div></div><p id="science-experiment" class="science-experiment"></p>
             </div>
-            <div class="chat-history-controls"><select id="conversation-select" aria-label="选择历史对话"><option value="">当前新对话</option></select><button id="delete-chat" class="text-button" type="button" hidden>删除对话</button><span id="chat-mode" class="tutor-badge">声调教学助手</span></div><div id="messages" class="messages" role="log" aria-live="polite"><div class="message assistant"><span class="avatar">声</span><div><p>你好，欢迎来到声调纠正系统。</p><p>录音分析后，我会结合曲线说明你的发音特点，并给出具体复练动作。你可以继续追问某段曲线或下一轮怎样练。</p></div></div></div><form id="chat-form" class="composer"><label class="sr-only" for="chat-input">输入声调练习问题</label><input id="chat-input" placeholder="这次哪里要调整？下一轮怎样练？" maxlength="2000" autocomplete="off"><button type="submit" id="chat-send" aria-label="发送消息">↑</button></form><details id="chat-flow" class="chat-flow" hidden><summary>查看智能体执行记录</summary><ol id="chat-trace"></ol></details></section>
+            <div class="chat-history-controls"><select id="conversation-select" aria-label="选择历史对话"><option value="">当前新对话</option></select><button id="delete-chat" class="text-button" type="button" hidden>删除对话</button><span id="chat-mode" class="tutor-badge">声调教学助手</span></div><div id="messages" class="messages" role="log" aria-live="polite"><div class="message assistant"><span class="avatar">耳</span><div><p>你好，欢迎来到智耳正音。</p><p>录音分析后，我会结合曲线说明你的发音特点，并给出具体复练动作。你可以继续追问某段曲线或下一轮怎样练。</p></div></div></div><form id="chat-form" class="composer"><label class="sr-only" for="chat-input">输入声调练习问题</label><input id="chat-input" placeholder="这次哪里要调整？下一轮怎样练？" maxlength="2000" autocomplete="off"><button type="submit" id="chat-send" aria-label="发送消息">↑</button></form><details id="chat-flow" class="chat-flow" hidden><summary>查看智能体执行记录</summary><ol id="chat-trace"></ol></details></section>
         </div>
       </div>
-      <footer>声调纠正系统 <span>从一次自然发音开始。</span></footer>
+      <footer>智耳正音 <span>从一次自然发音开始。</span></footer>
     </main>
   </div>
   <dialog id="auth-dialog" class="dialog auth-dialog">
-    <div class="dialog-brand"><span class="brand-icon">声</span><span>声调纠正系统</span></div>
+    <div class="dialog-brand"><span class="brand-icon">耳</span><span>智耳正音</span></div>
     <div class="guest-entry"><h2>从一次自然发音开始</h2><p>录音分析、专业示范、图表对照与智能问答。</p><button id="guest-start" class="primary guest-start" type="button"><span id="guest-start-label">游客立即试用</span><span aria-hidden="true">↗</span></button><small>无需账号或邀请码 · 试用有效 24 小时，过期记录自动清理</small></div>
     <h3 id="auth-title">账号登录</h3><p id="auth-description">登录后保存录音、练习记录和学习记忆。</p>
     <form id="auth-form"><label>账号<input id="auth-username" required minlength="3" maxlength="40" autocomplete="username" placeholder="英文、数字或下划线"></label><label>密码<input id="auth-password" type="password" required minlength="10" maxlength="128" autocomplete="current-password" placeholder="至少 10 个字符"></label><label id="display-field" hidden>你的名字<input id="auth-display" maxlength="50" placeholder="如何称呼你"></label><label id="invite-field" hidden>教师邀请码<input id="auth-invite" autocomplete="off"></label><label id="setup-field" hidden>初始化口令<input id="auth-setup" type="password" autocomplete="off"></label><p id="auth-error" class="dialog-error" role="alert"></p><button class="primary" id="auth-submit" type="submit">登录</button></form><button id="auth-switch" class="text-button" type="button">有邀请码？创建学习者账号</button>
   </dialog>
-  <dialog id="memory-dialog" class="dialog"><div class="dialog-heading"><h2>我的学习档案</h2><button class="dialog-close" type="button" data-close="memory-dialog" aria-label="关闭学习档案">×</button></div><p>声调纠正系统根据你的练习目标和最近的观测结果安排建议。</p><form id="memory-form"><label>练习目标<textarea id="memory-goal" maxlength="500" rows="3"></textarea></label><label class="checkbox-label"><input id="memory-enabled" type="checkbox"> 使用长期学习记忆</label><div id="memory-facts" class="memory-facts"></div><p id="memory-status" class="dialog-status" role="status"></p><button class="primary" type="submit">保存学习档案</button></form><button id="clear-memory" class="text-button" type="button">清空练习摘要</button></dialog>
+  <dialog id="memory-dialog" class="dialog"><div class="dialog-heading"><h2>我的学习档案</h2><button class="dialog-close" type="button" data-close="memory-dialog" aria-label="关闭学习档案">×</button></div><p>智耳正音根据你的练习目标和最近的观测结果安排建议。</p><form id="memory-form"><label>练习目标<textarea id="memory-goal" maxlength="500" rows="3"></textarea></label><label class="checkbox-label"><input id="memory-enabled" type="checkbox"> 使用长期学习记忆</label><div id="memory-facts" class="memory-facts"></div><p id="memory-status" class="dialog-status" role="status"></p><button class="primary" type="submit">保存学习档案</button></form><button id="clear-memory" class="text-button" type="button">清空练习摘要</button></dialog>
   <dialog id="teacher-dialog" class="dialog"><div class="dialog-heading"><h2>教师工作台</h2><button class="dialog-close" type="button" data-close="teacher-dialog" aria-label="关闭教师工作台">×</button></div><p>邀请学习者加入，查看他们授权给你的练习。</p><button id="create-invite" class="primary" type="button">生成一个学习者邀请码</button><p id="invite-result" class="invite-result" role="status"></p><div id="student-list" class="student-list"></div></dialog>
 </body>
 </html>

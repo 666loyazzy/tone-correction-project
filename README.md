@@ -1,10 +1,12 @@
-# 声调纠正项目 · 声调纠正系统
+# 智耳正音
 
 浏览器录音 → 回听与选区 → Praat 自动提取 F0 → 声学特征与图表 → 教学反馈 → 复练对比。面向汉语二语学习者，首版支持孤立一至四声，重点观察二声、三声。用户已明确需要录音，本项目不引入语音识别。
 
 可选择 ma、ba、da、di、mi、ni、lu、shi、shu、yi、wu、yu 共 12 组音节、48 个四声练习，页面同步显示带调拼音与例字。练习、memory、分数历史、模型建议和复练对比都记录实际音节；旧记录沿用 ma。只将同音节、同声调、同参照和提取参数的练习用于进步比较。
 
 前端为响应式 HTML/CSS/ES Modules，无构建步骤。后端为 FastAPI、Praat-Parselmouth、SQLAlchemy；服务器部署使用 PostgreSQL、Redis、Celery 与 Caddy HTTPS。本地开发使用 SQLite 和进程内后台任务。可把独立录音模块迁移到 React/assistant-ui。
+
+首页顶部提供视频课堂（`frontend/media/zhier-intro.mp4`），使用浏览器原生播放器，支持暂停、拖动进度和手机内联播放。用户提供的视频和封面仅部署在网站，未纳入公开仓库；部署时将媒体文件放到 `frontend/media/`。视频下方的 `#video-commentary-text` 预留解说文字；电脑端字号统一放大 25%，手机沿用原有适配。
 
 ## 已实现功能
 

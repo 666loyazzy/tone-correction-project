@@ -29,7 +29,7 @@ async def answer(message: str, tone: int, result: dict | None, past: list[dict],
     if not os.getenv('LLM_API_KEY') or not os.getenv('LLM_MODEL'):
         return {'mode': 'local', 'text': local_feedback(measured), 'sources': sources}
     system = (skills if skills is not None else load_chat_skills()[0]) + '\n' + (
-        '你是声调纠正系统的科学教学智能体，面向汉语二语学习者。'
+        '你是智耳正音的科学教学智能体，面向汉语二语学习者。'
         '直接和学习者交流，先给出发音判断，再解释图表证据，最后给出复练动作。自动分析约200至450个中文字，三段即可；追问按问题展开。不要写报告或六节标题。'
         '强制遵循 anti-defensive-writing：自信地陈述有观测支持的分析，删除仅供参考、是否更符合目标还需结合回听和教师参考等泛泛收尾。'
         '具体引用已给出的数值、单位、有效帧比例和前中后段观测，解释它们怎样支持结论。数值只能来自上下文。'

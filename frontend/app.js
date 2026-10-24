@@ -35,7 +35,7 @@ function showAuth() {
   $('.shell').inert = true;
   if (!$('#auth-dialog').open) $('#auth-dialog').showModal();
   const register = authMode !== 'login';
-  $('#auth-title').textContent = authStatus.needs_setup ? '创建教师账号' : register ? '加入声调练习' : '欢迎回到声调纠正系统';
+  $('#auth-title').textContent = authStatus.needs_setup ? '创建教师账号' : register ? '加入声调练习' : '欢迎回到智耳正音';
   $('#auth-description').textContent=register&&!authStatus.needs_setup?'使用教师邀请码加入后，该教师可以查看你的练习录音与分析。':'登录后保存录音、练习记录和学习记忆。';
   $('#auth-submit').textContent = register ? '创建账号并开始' : '登录';
   $('#display-field').hidden = !register;
@@ -446,7 +446,7 @@ async function openPractice(item, reviewOnly=false) {
     if (row.audio_available) {
       const response=await fetch('/api/practices/'+row.id+'/audio');
       if (!response.ok) throw new Error('无法读取录音，请重新登录后再试。');
-      await setAudio(await response.blob(),`声调纠正系统-${pronunciation(row.tone,row.syllable||'ma')}.wav`,row.result.duration_s);
+      await setAudio(await response.blob(),`智耳正音-${pronunciation(row.tone,row.syllable||'ma')}.wav`,row.result.duration_s);
       $('#start').value=row.result.selection.start_s.toFixed(2);$('#end').value=row.result.selection.end_s.toFixed(2);
       state.cropEdited=true;
     } else {
@@ -485,7 +485,7 @@ recorder.addEventListener('progress', event => {
 });
 recorder.addEventListener('recorded', event => {
   const {blob,type,elapsed_s}=event.detail;
-  setAudio(blob, `声调纠正系统-${pronunciation(state.tone)}-${Date.now()}.${audioExtension(type)}`, elapsed_s);
+  setAudio(blob, `智耳正音-${pronunciation(state.tone)}-${Date.now()}.${audioExtension(type)}`, elapsed_s);
 });
 $('#record').addEventListener('click', () => {
   if (recorder.state==='recording') recorder.stop();
@@ -556,7 +556,7 @@ $('#export').addEventListener('click', () => {
   if (!state.result) return;
   const csv=['Time_s,F0_Hz',...state.result.time_s.map((time,index)=>`${time},${state.result.f0_hz[index]??''}`)].join('\n');
   const url=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
-  const a=document.createElement('a');a.href=url;a.download=`声调纠正系统-${pronunciation(state.result.tone,state.result.syllable||'ma')}-F0.csv`;a.click();
+  const a=document.createElement('a');a.href=url;a.download=`智耳正音-${pronunciation(state.result.tone,state.result.syllable||'ma')}-F0.csv`;a.click();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
 $('#chat-form').addEventListener('submit',async event=>{
