@@ -22,11 +22,12 @@ body{color:#223d30}.page-intro p:last-child,.eyebrow,.sidebar-caption,.sidebar-l
 
 /* Scale all desktop typography together; retain the existing mobile sizes. */
 @media(min-width:851px){html{font-size:125%}.section-title{flex-wrap:wrap;row-gap:10px}.tutor-actions{flex-wrap:wrap}.chart-legend{flex-wrap:wrap}.sidebar-bottom{flex-wrap:wrap}.recording-label{line-height:1.6}}
-.intro-video{padding:22px 24px;margin-top:26px;overflow:hidden}
-.intro-video .section-title{margin-bottom:16px;flex-wrap:wrap}
-.video-label{font-size:.6875rem;color:#4b6244;letter-spacing:.06em}
-.intro-video video{display:block;width:100%;height:auto;max-height:420px;aspect-ratio:1280/566;object-fit:contain;background:#101b16;border-radius:10px}
-.video-commentary{margin-top:20px;padding-top:17px;border-top:1px solid var(--line)}
-.video-commentary h3{margin:0;color:#36553e;font-size:.8125rem;font-weight:600}
-.video-commentary-text{min-height:76px;margin-top:12px;line-height:1.9;white-space:pre-wrap;overflow-wrap:anywhere;color:#314f34;font-size:.8125rem}
-@media(max-width:650px){.intro-video{padding:18px;margin-top:18px}.video-label{font-size:.6875rem}.video-commentary-text{min-height:60px;font-size:.875rem}}
+.principle-video-entry{margin:0 0 17px;padding:14px 16px;border:1px solid #cddfc4;border-radius:10px;background:#f1f6ec}
+.principle-video-entry p{font-size:.6875rem;color:#4b6244;line-height:1.7;margin:0 0 8px}
+.principle-video-entry button{font-size:.75rem;font-weight:600;line-height:1.7;text-align:left;min-height:40px}
+.principle-video-entry button span{margin-right:6px}
+.principle-video-dialog{width:min(480px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow-y:auto;padding:22px}
+.principle-video-dialog h2{font-size:1rem;line-height:1.6;padding-right:14px}
+.principle-video-dialog>p{font-size:.75rem;margin:10px 0 15px}
+.principle-video-dialog video{display:block;width:100%;height:auto;max-height:calc(100dvh - 190px);aspect-ratio:9/16;object-fit:contain;border-radius:9px;background:#101b16}
+@media(max-width:650px){.principle-video-entry p{font-size:.75rem}.principle-video-entry button{font-size:.875rem}.principle-video-dialog{padding:18px}.principle-video-dialog video{max-height:calc(100dvh - 170px)}}

@@ -6,7 +6,7 @@
 
 前端为响应式 HTML/CSS/ES Modules，无构建步骤。后端为 FastAPI、Praat-Parselmouth、SQLAlchemy；服务器部署使用 PostgreSQL、Redis、Celery 与 Caddy HTTPS。本地开发使用 SQLite 和进程内后台任务。可把独立录音模块迁移到 React/assistant-ui。
 
-首页顶部提供视频课堂（`frontend/media/zhier-intro.mp4`），使用浏览器原生播放器，支持暂停、拖动进度和手机内联播放。用户提供的视频和封面仅部署在网站，未纳入公开仓库；部署时将媒体文件放到 `frontend/media/`。视频下方的 `#video-commentary-text` 预留解说文字；电脑端字号统一放大 25%，手机沿用原有适配。
+分析回复下方提供与目标声调对应的发音医学原理视频。一至四声分别使用 `frontend/media/tone-principle-1.mp4` 至 `tone-principle-4.mp4`，并配备同名 JPG 封面。新一次分析及教学回复结束后，低于 80 分自动弹出视频窗口；80 分及以上保留点击查看入口。无有效分数时不弹出，查看历史、重新解读和刷新页面不重复自动弹出。关闭窗口立即停止播放。用户提供的视频和封面仅部署在网站，未纳入公开仓库；部署时将媒体文件放到 `frontend/media/`。电脑端字号保持放大 25%。
 
 ## 已实现功能
 

@@ -105,6 +105,9 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     releaseFirstReply();await page.waitForFunction(()=>document.querySelector('#flow-status').textContent==='已完成',null,{timeout:30000});
     await page.waitForFunction(()=>!document.querySelector('#analyze').disabled);
     await page.waitForSelector('#science-visuals:not([hidden])');
+    assert.equal(await page.locator('#principle-video-entry').isVisible(),true);
+    assert.equal(await page.locator('#principle-video-dialog').evaluate(dialog=>dialog.open),Number(await page.locator('#score-value').textContent())<80);
+    if(await page.locator('#principle-video-dialog').evaluate(dialog=>dialog.open))await page.click('[data-close="principle-video-dialog"]');
     assert.equal(await page.locator('#science-quality-plot svg').count(),1);
     assert.equal(await page.locator('#science-regions-plot .science-bar').count(),3);
     assert.equal(await page.locator('#science-body').count(),0);
@@ -139,7 +142,9 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     await page.click('#record');await page.waitForSelector('#record.recording');await page.waitForTimeout(1700);await page.click('#record');
     await page.waitForFunction(()=>document.querySelector('#preview').hidden===false&&!document.querySelector('#analyze').disabled);
     await page.click('#analyze');await page.waitForFunction(()=>document.querySelector('#flow-status').textContent==='已完成',null,{timeout:30000});
-    await page.waitForFunction(()=>!document.querySelector('#analyze').disabled);await page.check('#compare');
+    await page.waitForFunction(()=>!document.querySelector('#analyze').disabled);
+    if(await page.locator('#principle-video-dialog').evaluate(dialog=>dialog.open))await page.click('[data-close="principle-video-dialog"]');
+    await page.check('#compare');
     assert.equal(await page.locator('#science-comparison > div').count(),3);
     assert.equal(await page.locator('#score-records tr').count(),2);
     assert.equal(await page.locator('#chart .previous-line').count(),1);
@@ -150,6 +155,8 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     assert.equal(await page.locator('#memory-goal').inputValue(),'重点比较三声的两次曲线');
     await page.click('[data-close="memory-dialog"]');
     await page.locator('.history-item').first().click();await page.waitForFunction(()=>!document.querySelector('#export').disabled);
+    assert.equal(await page.locator('#principle-video-entry').isVisible(),true);
+    assert.equal(await page.locator('#principle-video-dialog').evaluate(dialog=>dialog.open),false);
     assert.equal(await page.locator('#syllable-select').inputValue(),'ba');
     assert.match(await page.locator('.history-item').first().textContent(),/bǎ/);
     assert.equal(await page.locator('#score-records tr').count(),2);

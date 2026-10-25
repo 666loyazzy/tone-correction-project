@@ -1,4 +1,5 @@
 import {BrowserRecorder, audioExtension} from './recorder.js';
+import {renderPrincipleVideo} from './principle-video.js';
 import {renderDashboard,startThinking,thinkingStage,stopThinking} from './progress.js';
 
 const $ = selector => document.querySelector(selector);
@@ -241,6 +242,7 @@ async function streamTeaching(body,onTrace){
 }
 
 function clearEvidenceVisuals(){
+  renderPrincipleVideo(null);
   $('#science-visuals').hidden=true;$('#science-origin').textContent='';$('#science-status').textContent='完成录音分析后展示';
   $('#analysis-flow').hidden=true;
   renderAgentFlow();
@@ -265,7 +267,7 @@ function showEvidenceVisuals(data){
   $('#science-visuals').hidden=false;
 }
 
-async function sendTeaching(message,withVisuals=false){
+async function sendTeaching(message,withVisuals=false,autoVideo=false){
   if(state.chatBusy)return;
   const analysisId=state.reviewOnly?null:state.practiceId;
   state.chatBusy=true;$('#chat-send').disabled=true;updateButtons();
@@ -282,7 +284,7 @@ async function sendTeaching(message,withVisuals=false){
     $('#chat-mode').textContent=data.mode==='api'?'DeepSeek 发音分析':data.mode==='guarded'?'实测练习建议':'实测证据 · 本地规则';
     await loadConversations();
   }catch(error){addMessage(error.message);if(error.trace){renderChatTrace(error.trace);renderAgentFlow(error.trace);}if(withVisuals)$('#science-status').textContent='回复未完成，可点击重新解读';}
-  finally{stopThinking();state.chatBusy=false;$('#chat-send').disabled=false;updateButtons();}
+  finally{stopThinking();state.chatBusy=false;$('#chat-send').disabled=false;updateButtons();if(withVisuals&&analysisId&&state.practiceId===analysisId)renderPrincipleVideo(state.result,{autoOpen:autoVideo,practiceId:analysisId});}
 }
 
 function renderWaveform() {
@@ -435,6 +437,7 @@ async function waitForPractice(id, signal) {
 
 async function openPractice(item, reviewOnly=false) {
   if (state.busy) return;
+  renderPrincipleVideo(null);
   state.busy=true;updateButtons();
   try {
     const row=item.state==='completed'?item:await waitForPractice(item.id);
@@ -457,6 +460,7 @@ async function openPractice(item, reviewOnly=false) {
     renderChart();renderWaveform();showQuality(row.result);showTrace(row);
     const scores=await api('/api/scores?'+exerciseQuery(row.tone,row.syllable||'ma'));scoreRecords=scores.records;
     renderDashboard(row.result,scoreRecords,row.tone,row.id);
+    renderPrincipleVideo(row.result);
     $('#science-status').textContent='已载入当前曲线与轮廓分，点击“重新解读”继续分析。';
     notify(row.audio_available?'已载入这次练习的录音和曲线，可回听或复练。':'已载入曲线；音频已过保留期。');
   } catch(error) {notify(error.message,true);}
@@ -535,6 +539,7 @@ $('#analyze').addEventListener('click', async () => {
     if (!Number.isFinite(start) || !Number.isFinite(end) || end-start<.12 || start<0) {notify('请设置至少 0.12 秒的有效选区。',true);return;}
     form.append('start_s',String(start));form.append('end_s',String(end));
   }
+  renderPrincipleVideo(null);
   state.busy=true;updateButtons();notify('正在读取录音并提取声调，请稍候。');
   requestController=new AbortController();
   const timeout=setTimeout(()=>requestController?.abort(),180000);
@@ -550,7 +555,7 @@ $('#analyze').addEventListener('click', async () => {
   } catch(error) {
     notify(error.name==='AbortError'?'分析等待超时，录音仍保留，可再次提交。':(error.message||'分析未完成，请重试。'),true);
   } finally {clearTimeout(timeout);requestController=null;state.busy=false;updateButtons();}
-  if(completed)await sendTeaching(sciencePrompt,true);
+  if(completed)await sendTeaching(sciencePrompt,true,true);
 });
 $('#export').addEventListener('click', () => {
   if (!state.result) return;
@@ -598,7 +603,7 @@ $('#delete-practice').addEventListener('click',async()=>{
   if(!state.practiceId || state.reviewOnly)return;
   try {
     await api('/api/practices/'+state.practiceId,{method:'DELETE'});
-    state.practiceId=null;state.result=null;$('#analysis-flow').hidden=true;$('#quality').hidden=true;
+    state.practiceId=null;state.result=null;renderPrincipleVideo(null);$('#analysis-flow').hidden=true;$('#quality').hidden=true;
     if(state.url)URL.revokeObjectURL(state.url);state.blob=null;state.url=null;$('#preview').hidden=true;
     await loadHistory();renderChart();updateButtons();notify('这次练习、录音及对应学习摘要已删除。');
   }catch(error){notify(error.message,true);}
