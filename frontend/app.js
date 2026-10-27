@@ -682,6 +682,7 @@ async function initialize(){
   $('.shell').inert=true;updateButtons();
   try{
     exercises=await api('/assets/exercises.json');
+    $('#exercise-count').textContent=`${exercises.length} 组音节 · ${exercises.length*4} 个四声练习`;
     const select=$('#syllable-select');select.replaceChildren();
     for(const item of exercises){const option=document.createElement('option');option.value=item.id;option.textContent=`${item.id} · ${item.characters.join(' / ')}`;select.append(option);}
     await chooseTone(state.tone);

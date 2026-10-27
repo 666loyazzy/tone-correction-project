@@ -58,7 +58,8 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
     assert.equal(await page.locator('#analysis-flow').isVisible(),false);
     await page.waitForFunction(()=>document.querySelector('#reference-select').options.length>0);
     const exercises=await (await context.request.get(base+'/assets/exercises.json')).json();
-    assert.equal(exercises.length,12);
+    assert.equal(exercises.length,36);
+    assert.equal(await page.locator('#exercise-count').textContent(),'36 组音节 · 144 个四声练习');
     for(const exercise of exercises){
       if(exercise.id!==await page.locator('#syllable-select').inputValue()){
         const ready=page.waitForResponse(response=>response.url().includes('/api/references?')&&new URL(response.url()).searchParams.get('syllable')===exercise.id);
@@ -175,7 +176,7 @@ with wave.open(${JSON.stringify(fixture)},'wb') as w:
       if(process.env.TEST_SESSION_PATH)await context.storageState({path:process.env.TEST_SESSION_PATH});
     }
     assert.deepEqual(errors,[]);
-    console.log('Browser checks passed: twelve syllables, matching native samples, saved syllable restoration, recording, Praat, nine acoustic stages, corrected audio, scoring charts, score history, thinking animation, chat, memory, mobile layout and permission failure.');
+    console.log('Browser checks passed: 36 syllables and 144 tones, matching native samples, saved syllable restoration, recording, Praat, nine acoustic stages, corrected audio, scoring charts, score history, thinking animation, chat, memory, mobile layout and permission failure.');
   }finally{await browser.close();}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

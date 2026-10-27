@@ -2,7 +2,7 @@
 
 浏览器录音 → 回听与选区 → Praat 自动提取 F0 → 声学特征与图表 → 教学反馈 → 复练对比。面向汉语二语学习者，首版支持孤立一至四声，重点观察二声、三声。用户已明确需要录音，本项目不引入语音识别。
 
-可选择 ma、ba、da、di、mi、ni、lu、shi、shu、yi、wu、yu 共 12 组音节、48 个四声练习，页面同步显示带调拼音与例字。练习、memory、分数历史、模型建议和复练对比都记录实际音节；旧记录沿用 ma。只将同音节、同声调、同参照和提取参数的练习用于进步比较。
+可选择 ma、ba、chi、zhi、qiao、chuang、tang、guo 等共 36 组音节、144 个四声练习，页面同步显示带调拼音与例字。音节覆盖基础元音、平翘舌、复韵母和鼻韵母，练习数量随题库自动更新。练习、memory、分数历史、模型建议和复练对比都记录实际音节；旧记录沿用 ma。只将同音节、同声调、同参照和提取参数的练习用于进步比较。
 
 前端为响应式 HTML/CSS/ES Modules，无构建步骤。后端为 FastAPI、Praat-Parselmouth、SQLAlchemy；服务器部署使用 PostgreSQL、Redis、Celery 与 Caddy HTTPS。本地开发使用 SQLite 和进程内后台任务。可把独立录音模块迁移到 React/assistant-ui。
 
@@ -154,7 +154,7 @@ flowchart LR
 
 纠正示范对本人的已保存单音节录音做 Praat PSOLA 声调重合成，按参照调整 F0 并保留音色和时长；产物与原录音一同保留或删除。[Parselmouth 方法说明](https://parselmouth.readthedocs.io/en/stable/examples/pitch_manipulation.html)。RMS 图以 dBFS 表示数字录音音量。
 
-新增 29 个维基共享资源的普通话真人示范，共内置 33 个可播放示范。每个文件及其实际 Praat 曲线都保留原作者、原始文件页面与许可链接；署名见 `backend/reference_audio/COMMONS-ATTRIBUTION.txt`。新增文件分别按 CC BY 2.0 France 或 CC BY-SA 3.0 US 许可发布，与代码许可独立。尚无对应真人录音的音节声调使用明确标注的五度教学目标示意，也支持教师上传该音节示范。页面只显示当前音节、当前声调的可用示范。
+共内置 91 个可播放真人示范：4 个 OpenLearn 示范，以及 87 个维基共享资源普通话示范（本次扩展新增 58 个）。每个文件及其实际 Praat 曲线都保留原作者、原始文件页面与许可链接；署名见 `backend/reference_audio/COMMONS-ATTRIBUTION.txt`。维基共享资源文件分别按 CC BY 2.0 France 或 CC BY-SA 3.0 US 许可发布，与代码许可独立。尚无对应真人录音的音节声调使用明确标注的五度教学目标示意，也支持教师上传该音节示范。页面只显示当前音节、当前声调的可用示范。增量导入时可为 `scripts/import_commons_audio.py` 提供 `--syllables`，仅更新指定音节并保留其余示范。
 
 ## 接口
 

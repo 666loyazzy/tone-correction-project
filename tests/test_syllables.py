@@ -50,8 +50,8 @@ class SyllableTests(unittest.TestCase):
         self.assertEqual(len(reply['trace']), 6)
 
     def test_all_exercises_filter_references_and_reject_a_different_syllable(self):
-        self.assertEqual(len(EXERCISES), 12)
-        self.assertEqual(len(self.client.get('/assets/exercises.json').json()), 12)
+        self.assertEqual(len(EXERCISES), 36)
+        self.assertEqual(len(self.client.get('/assets/exercises.json').json()), 36)
         for syllable, item in EXERCISES.items():
             self.assertEqual(len(item['pinyin']), 4)
             for tone in range(1, 5):
@@ -63,6 +63,14 @@ class SyllableTests(unittest.TestCase):
             files={'file': ('wrong-reference.wav', wave_bytes())})
         self.assertEqual(rejected.status_code, 404)
         self.assertEqual(self.client.get('/api/practices').json()['practices'], [])
+
+    def test_expanded_syllable_keeps_its_identity_in_analysis_and_scores(self):
+        practice = self.practice('chuang')
+        self.assertEqual(practice['syllable'], 'chuang')
+        self.assertEqual(practice['result']['syllable'], 'chuang')
+        scores = self.client.get('/api/scores?tone=3&syllable=chuang').json()['records']
+        self.assertEqual([item['id'] for item in scores], [practice['id']])
+        self.assertEqual(self.client.get('/api/scores?tone=3&syllable=qiao').json()['records'], [])
 
     def test_unknown_syllables_are_rejected_at_each_input_boundary(self):
         self.assertEqual(self.client.get('/api/references?syllable=invalid').status_code, 400)

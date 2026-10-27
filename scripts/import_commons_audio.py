@@ -35,14 +35,17 @@ def main():
     parser.add_argument('--metadata', type=Path, required=True,
         help='Commons imageinfo query with url and extmetadata for the original files')
     parser.add_argument('--downloads', type=Path, required=True)
+    parser.add_argument('--syllables', nargs='+', choices=list(EXERCISES),
+        help='Import only these syllables, preserving other existing references')
     args = parser.parse_args()
+    selected = set(args.syllables or EXERCISES)
     pages = {page['title']: page for page in json.loads(args.metadata.read_text(encoding='utf-8'))['query']['pages']}
     args.downloads.mkdir(parents=True, exist_ok=True)
     audio = ROOT / 'backend' / 'reference_audio'
     missing = []
     jobs = []
     for syllable, exercise in EXERCISES.items():
-        if syllable == 'ma':
+        if syllable == 'ma' or syllable not in selected:
             continue
         for tone, pinyin in enumerate(exercise['pinyin'], 1):
             page = pages.get('File:Zh-' + pinyin + '.ogg')
@@ -99,12 +102,12 @@ def main():
         references = [ref for job in jobs if (ref := load(job)) is not None]
     catalog_path = ROOT / 'backend' / 'reference_catalog.json'
     catalog = [ref for ref in json.loads(catalog_path.read_text(encoding='utf-8'))
-               if not ref['id'].startswith('commons-')]
+               if not (ref['id'].startswith('commons-') and ref.get('syllable', 'ma') in selected)]
     catalog_path.write_text(json.dumps(catalog + references, ensure_ascii=False, indent=2), encoding='utf-8')
     (audio / 'COMMONS-ATTRIBUTION.txt').write_text('\n\n'.join(
         f"{ref['id']}: {ref['name']}\n{ref['source_url']}\n{ref['attribution']}\n"
         f"{ref['license']} {ref['license_url']}\nChanges: mono PCM WAV conversion and Praat curve extraction."
-        for ref in references) + '\n', encoding='utf-8')
+        for ref in catalog + references if ref['id'].startswith('commons-')) + '\n', encoding='utf-8')
     print(json.dumps({'native_recordings_added': len(references), 'schematic_only': missing}, ensure_ascii=True))
 
 
